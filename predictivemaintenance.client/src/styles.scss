@@ -1,52 +1,221 @@
-// src/styles.scss (convert from CSS to SCSS first)
-// Import all needed modules first
+// Enhanced styles.scss with modern UI approach
 @use '@angular/material' as mat;
-@use '@angular/material/theming' as theming;
 
-// Define a custom palette
-$pm-primary: mat.define-palette(mat.$blue-palette, 700);
-$pm-accent: mat.define-palette(mat.$cyan-palette, 600, 100, 900);
-$pm-warn: mat.define-palette(mat.$red-palette);
+// Create a custom palette with vibrant colors
+$pm-primary: mat.define-palette(mat.$indigo-palette, 700);
+$pm-accent: mat.define-palette(mat.$teal-palette, 500);
+$pm-warn: mat.define-palette(mat.$pink-palette, 600);
 
-// Create the theme
-$pm-theme: mat.define-light-theme(( color: ( primary: $pm-primary, accent: $pm-accent, warn: $pm-warn, ), typography: mat.define-typography-config( $font-family: 'Roboto, "Helvetica Neue", sans-serif', ), density: 0, ));
+// Custom theme with increased contrast
+$pm-theme: mat.define-light-theme(( color: ( primary: $pm-primary, accent: $pm-accent, warn: $pm-warn, ), typography: mat.define-typography-config( $font-family: 'Montserrat, "Helvetica Neue", sans-serif', ), density: 0, ));
 
-// Apply the theme
 @include mat.all-component-themes($pm-theme);
 
-// Custom global styles
+// Import Google fonts
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+// Global styles
+:root {
+  --card-border-radius: 12px;
+  --transition-speed: 0.3s;
+  --background-gradient: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+  --box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+}
+
 body {
-  background-color: #f9fafc;
+  background: var(--background-gradient);
   margin: 0;
-  font-family: Roboto, "Helvetica Neue", sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  overflow-x: hidden;
 }
 
-// Add gradient backgrounds for status cards
-.status-card {
-  &.operational {
-    background: linear-gradient(135deg, #4CAF50, #2E7D32);
-  }
-
-  &.warning {
-    background: linear-gradient(135deg, #FF9800, #F57C00);
-  }
-
-  &.critical {
-    background: linear-gradient(135deg, #F44336, #C62828);
-  }
-
-  &.maintenance {
-    background: linear-gradient(135deg, #2196F3, #1565C0);
-  }
-}
-
-// Add shadow and hover effects to cards
+// Enhanced card styling with glassmorphism
 mat-card {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-  transition: transform 0.3s, box-shadow 0.3s;
+  border-radius: var(--card-border-radius) !important;
+  box-shadow: var(--box-shadow) !important;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9) !important;
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
 
   &:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
   }
+
+  mat-card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+}
+
+// Status cards with vibrant gradients
+.status-card {
+  color: white;
+
+  &.operational {
+    background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+  }
+
+  &.warning {
+    background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+  }
+
+  &.critical {
+    background: linear-gradient(135deg, #f44336, #c62828) !important;
+  }
+
+  &.under-maintenance {
+    background: linear-gradient(135deg, #2196f3, #1565c0) !important;
+  }
+}
+
+// Animated status count for dashboard
+.status-count {
+  font-size: 3rem;
+  font-weight: 700;
+  opacity: 0;
+  animation: countUp 1s ease forwards 0.5s;
+}
+
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Enhanced table styling
+.mat-mdc-table {
+  background: transparent !important;
+
+  .mat-mdc-header-row {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .mat-mdc-row:hover {
+    background: rgba(63, 81, 181, 0.05);
+  }
+}
+
+// Improved chart styling
+.chart-container {
+  padding: 12px;
+  border-radius: var(--card-border-radius);
+  background: white;
+
+  .chart {
+    height: 400px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+  }
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5cae9;
+  border-radius: 10px;
+
+  &:hover {
+    background: #3f51b5;
+  }
+}
+
+// Animated page transitions
+.container {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+// Error snackbar styling
+.error-snackbar {
+  background: #f44336;
+  color: white;
+}
+
+// Success snackbar styling
+.success-snackbar {
+  background: #4caf50;
+  color: white;
+}
+
+// Loading overlay
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  backdrop-filter: blur(3px);
+}
+
+// Presets grid
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.preset-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.preset-card mat-card-content {
+  flex: 1;
+}
+
+.preset-details {
+  margin-top: 16px;
+}
+
+.preset-detail {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.preset-detail .label {
+  min-width: 80px;
+  font-weight: 500;
+}
+
+// Improve general spacing
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+}
+
+p {
+  margin-top: 0;
 }

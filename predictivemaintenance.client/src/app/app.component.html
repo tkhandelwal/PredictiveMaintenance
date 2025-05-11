@@ -1,24 +1,27 @@
-﻿<h1 id="tableLabel">Weather forecast</h1>
+<div class="app-container">
+  <!-- Main Toolbar/Navbar -->
+  <app-navbar (toggleSidebar)="toggleSidebar()"></app-navbar>
 
-<p>This component demonstrates fetching data from the server.</p>
+  <!-- Sidebar and Content Area -->
+  <mat-drawer-container class="sidenav-container">
+    <!-- Sidebar -->
+    <mat-drawer #drawer mode="side" [opened]="!isMobile" class="sidenav">
+      <app-sidebar></app-sidebar>
+    </mat-drawer>
 
-<p *ngIf="!forecasts"><em>Loading... Please refresh once the ASP.NET backend has started. See <a href="https://aka.ms/jspsintegrationangular">https://aka.ms/jspsintegrationangular</a> for more details.</em></p>
+    <!-- Main Content Area -->
+    <mat-drawer-content class="content">
+      <div class="content-inner">
+        <router-outlet></router-outlet>
+      </div>
 
-<table *ngIf="forecasts">
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>Temp. (C)</th>
-            <th>Temp. (F)</th>
-            <th>Summary</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr *ngFor="let forecast of forecasts">
-            <td>{{ forecast.date }}</td>
-            <td>{{ forecast.temperatureC }}</td>
-            <td>{{ forecast.temperatureF }}</td>
-            <td>{{ forecast.summary }}</td>
-        </tr>
-    </tbody>
-</table>
+      <!-- Footer (Optional) -->
+      <footer class="app-footer">
+        <div class="footer-content">
+          <p>Predictive Maintenance System &copy; 2025</p>
+          <p>Version 1.0.0</p>
+        </div>
+      </footer>
+    </mat-drawer-content>
+  </mat-drawer-container>
+</div>

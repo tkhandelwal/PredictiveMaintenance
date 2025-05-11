@@ -1,10 +1,24 @@
-// src/app/components/admin/simulation-control/simulation-control.component.ts
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { forkJoin, Subscription } from 'rxjs';
+
+// Material imports
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+
 import { Equipment } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
 import { SimulationService } from '../../../services/simulation.service';
+import { SignalRService } from '../../../services/signalr.service';
+import { LoadingService } from '../../../services/loading.service';
+import { LoadingSpinnerComponent } from '../../shared/loading-spinner/loading-spinner.component';
 
 interface ActiveSimulation {
   id: string;
@@ -19,22 +33,80 @@ interface ActiveSimulation {
   templateUrl: './simulation-control.component.html',
   styleUrls: ['./simulation-control.component.scss']
 })
-export class SimulationControlComponent implements OnInit {
-  simulationForm!: FormGroup; // Using non-null assertion operator
+export class SimulationControlComponent implements OnInit, OnDestroy {
+  simulationForm!: FormGroup;
   equipmentList: Equipment[] = [];
   activeSimulations: ActiveSimulation[] = [];
   isLoading = false;
+
+  presets: { name: string, description: string, config: any }[] = [
+    {
+      name: 'Normal Operation',
+      description: 'All equipment operating normally',
+      config: { scenarioType: 'Normal', duration: 60 }
+    },
+    {
+      name: 'Gradual Deterioration',
+      description: 'Simulate gradual wear on all equipment',
+      config: { scenarioType: 'Deterioration', duration: 180 }
+    },
+    {
+      name: 'Sudden Failure',
+      description: 'Simulate sudden equipment failure',
+      config: { scenarioType: 'Failure', duration: 90 }
+    },
+    {
+      name: 'Maintenance Effect',
+      description: 'Show improvement after maintenance',
+      config: { scenarioType: 'Maintenance', duration: 120 }
+    },
+  ];
+
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
     private equipmentService: EquipmentService,
     private simulationService: SimulationService,
+    private signalRService: SignalRService,
+    private loadingService: LoadingService,
     private snackBar: MatSnackBar
   ) { }
 
   ngOnInit(): void {
     this.createForm();
     this.loadEquipment();
+    this.subscribeToLoading();
+    this.subscribeToSimulationEvents();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  private subscribeToLoading(): void {
+    this.subscriptions.push(
+      this.loadingService.loading$.subscribe(loading => {
+        this.isLoading = loading;
+      })
+    );
+  }
+
+  private subscribeToSimulationEvents(): void {
+    this.subscriptions.push(
+      this.signalRService.getSimulationEvents().subscribe(event => {
+        if (event && event.type === 'SimulationComplete') {
+          // Remove the simulation from active list when it completes
+          this.activeSimulations = this.activeSimulations.filter(
+            sim => sim.equipmentId !== event.equipmentId || sim.scenarioType !== event.scenarioType
+          );
+
+          this.snackBar.open(`Simulation completed for ${this.getEquipmentName(event.equipmentId)}`, 'Close', {
+            duration: 3000
+          });
+        }
+      })
+    );
   }
 
   createForm(): void {
@@ -46,8 +118,17 @@ export class SimulationControlComponent implements OnInit {
   }
 
   loadEquipment(): void {
-    this.equipmentService.getAllEquipment().subscribe(equipment => {
-      this.equipmentList = equipment;
+    this.equipmentService.getAllEquipment().subscribe({
+      next: equipment => {
+        this.equipmentList = equipment;
+      },
+      error: error => {
+        console.error('Error loading equipment:', error);
+        this.snackBar.open('Error loading equipment', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
     });
   }
 
@@ -55,12 +136,13 @@ export class SimulationControlComponent implements OnInit {
     if (this.simulationForm.invalid) return;
 
     const request = this.simulationForm.value;
-    this.isLoading = true;
 
     this.simulationService.startSimulation(request).subscribe({
       next: (response: any) => {
-        this.isLoading = false;
-        this.snackBar.open(`Simulation started successfully`, 'Close', { duration: 3000 });
+        this.snackBar.open(`Simulation started successfully`, 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
 
         this.activeSimulations.push({
           id: this.generateSimId(),
@@ -71,7 +153,6 @@ export class SimulationControlComponent implements OnInit {
         });
       },
       error: (error: any) => {
-        this.isLoading = false;
         this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
           duration: 5000,
           panelClass: ['error-snackbar']
@@ -80,29 +161,36 @@ export class SimulationControlComponent implements OnInit {
     });
   }
 
-  stopSimulation(simulation: ActiveSimulation): void {
-    this.simulationService.stopSimulation(simulation.equipmentId).subscribe({
-      next: () => {
-        this.snackBar.open(`Simulation stopped`, 'Close', { duration: 3000 });
-        this.activeSimulations = this.activeSimulations.filter(s => s.id !== simulation.id);
-      },
-      error: (error: any) => {
-        this.snackBar.open(`Error stopping simulation: ${error.message}`, 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
+  runPreset(preset: any): void {
+    const requests = this.equipmentList.map(equipment => {
+      const request = {
+        equipmentId: equipment.id,
+        scenarioType: preset.config.scenarioType,
+        duration: preset.config.duration
+      };
+      return this.simulationService.startSimulation(request);
     });
-  }
 
-  resetAll(): void {
-    this.simulationService.resetAllSimulations().subscribe({
+    forkJoin(requests).subscribe({
       next: () => {
-        this.snackBar.open(`All simulations reset to normal operation`, 'Close', { duration: 3000 });
-        this.activeSimulations = [];
+        this.snackBar.open(`Preset "${preset.name}" started on all equipment`, 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+
+        // Add simulations to active list
+        this.equipmentList.forEach(equipment => {
+          this.activeSimulations.push({
+            id: this.generateSimId(),
+            equipmentId: equipment.id,
+            scenarioType: preset.config.scenarioType,
+            startTime: new Date(),
+            duration: preset.config.duration
+          });
+        });
       },
-      error: (error: any) => {
-        this.snackBar.open(`Error resetting simulations: ${error.message}`, 'Close', {
+      error: (error) => {
+        this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
           duration: 5000,
           panelClass: ['error-snackbar']
         });
@@ -131,5 +219,38 @@ export class SimulationControlComponent implements OnInit {
 
   private generateSimId(): string {
     return Math.random().toString(36).substring(2, 9);
+  }
+
+  stopSimulation(simulation: ActiveSimulation): void {
+    this.simulationService.stopSimulation(simulation.equipmentId).subscribe({
+      next: () => {
+        this.snackBar.open(`Simulation stopped`, 'Close', { duration: 3000 });
+        this.activeSimulations = this.activeSimulations.filter(s => s.id !== simulation.id);
+      },
+      error: (error: any) => {
+        this.snackBar.open(`Error stopping simulation: ${error.message}`, 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
+  }
+
+  resetAll(): void {
+    this.simulationService.resetAllSimulations().subscribe({
+      next: () => {
+        this.snackBar.open(`All simulations reset to normal operation`, 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+        this.activeSimulations = [];
+      },
+      error: (error: any) => {
+        this.snackBar.open(`Error resetting simulations: ${error.message}`, 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
   }
 }

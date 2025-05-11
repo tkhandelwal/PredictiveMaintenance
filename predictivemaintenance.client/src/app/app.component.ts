@@ -1,63 +1,61 @@
-// src/app/app.component.ts
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { MatSidenavModule } from '@angular/material/sidenav';
-
-// Import components
-import { NavbarComponent } from './components/shared/navbar/navbar.component';
-import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
+import { Component, ViewChild } from '@angular/core';
+import { MatDrawer } from '@angular/material/sidenav';
+import { Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
-  imports: [
-    CommonModule,
-    RouterModule,
-    MatSidenavModule,
-    NavbarComponent,
-    SidebarComponent
-  ],
-  template: `
-    <div class="app-container">
-      <app-navbar (toggleSidebar)="drawer.toggle()"></app-navbar>
-      
-      <mat-drawer-container class="sidenav-container">
-        <mat-drawer #drawer mode="side" opened class="sidenav">
-          <app-sidebar></app-sidebar>
-        </mat-drawer>
-        
-        <mat-drawer-content class="content">
-          <router-outlet></router-outlet>
-        </mat-drawer-content>
-      </mat-drawer-container>
-    </div>
-  `,
-  styles: [`
-    .app-container {
-      display: flex;
-      flex-direction: column;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-    }
-    
-    .sidenav-container {
-      flex: 1;
-    }
-    
-    .sidenav {
-      width: 250px;
-    }
-    
-    .content {
-      padding: 0;
-      overflow-x: hidden;
-    }
-  `]
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
   title = 'Predictive Maintenance System';
+  isMobile = false;
+
+  @ViewChild('drawer') drawer!: MatDrawer;
+
+  constructor(private router: Router) {
+    // Check screen size on init
+    this.checkScreenSize();
+
+    // Listen for window resize events
+    window.addEventListener('resize', () => {
+      this.checkScreenSize();
+    });
+
+    // Close sidebar on navigation on mobile devices
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        if (this.isMobile && this.drawer?.opened) {
+          this.drawer.close();
+        }
+      });
+  }
+
+  /**
+   * Toggles the sidebar open/closed
+   */
+  toggleSidebar(): void {
+    if (this.drawer) {
+      this.drawer.toggle();
+    }
+  }
+
+  /**
+   * Checks if the screen is mobile size
+   */
+  private checkScreenSize(): void {
+    this.isMobile = window.innerWidth < 768;
+
+    // Auto-close drawer on small screens
+    if (this.isMobile && this.drawer?.opened) {
+      this.drawer.close();
+    }
+
+    // Auto-open drawer on large screens
+    if (!this.isMobile && this.drawer && !this.drawer.opened) {
+      this.drawer.open();
+    }
+  }
 }

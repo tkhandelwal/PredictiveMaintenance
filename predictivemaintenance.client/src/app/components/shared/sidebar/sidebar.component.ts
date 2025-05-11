@@ -8,14 +8,6 @@ import { MatDividerModule } from '@angular/material/divider';
 
 @Component({
   selector: 'app-sidebar',
-  standalone: true,
-  imports: [
-    CommonModule,
-    RouterModule,
-    MatListModule,
-    MatIconModule,
-    MatDividerModule
-  ],
   template: `
     <mat-nav-list>
       <h2 matSubheader>Main Navigation</h2>
@@ -37,16 +29,11 @@ import { MatDividerModule } from '@angular/material/divider';
       
       <mat-divider></mat-divider>
       
-      <h2 matSubheader>Analytics</h2>
+      <h2 matSubheader>Administration</h2>
       
-      <a mat-list-item routerLink="/analytics" routerLinkActive="active">
-        <mat-icon matListItemIcon>insights</mat-icon>
-        <span matListItemTitle>Performance</span>
-      </a>
-      
-      <a mat-list-item routerLink="/reports" routerLinkActive="active">
-        <mat-icon matListItemIcon>assessment</mat-icon>
-        <span matListItemTitle>Reports</span>
+      <a mat-list-item routerLink="/admin/simulation" routerLinkActive="active">
+        <mat-icon matListItemIcon>science</mat-icon>
+        <span matListItemTitle>Simulation Control</span>
       </a>
     </mat-nav-list>
   `,
