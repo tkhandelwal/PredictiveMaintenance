@@ -99,38 +99,102 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
       return {
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines',
         name: sensorType,
         x: filteredReadings.map(r => new Date(r.timestamp)),
         y: filteredReadings.map(r => r.value),
-        line: { shape: 'spline' },
+        line: {
+          shape: 'spline',
+          width: 3,
+          color: sensorType === 'temperature' ? '#FF5722' : '#2196F3'
+        },
         marker: {
-          size: 6,
-          color: filteredReadings.map(r => r.isAnomaly ? 'red' : 'blue')
+          size: 8,
+          color: filteredReadings.map(r => r.isAnomaly ? '#F44336' : sensorType === 'temperature' ? '#FF5722' : '#2196F3'),
+          line: {
+            width: 2,
+            color: 'white'
+          }
+        },
+        hoverinfo: 'all',
+        hoverlabel: {
+          bgcolor: '#333',
+          bordercolor: '#333',
+          font: { color: 'white' }
         }
       };
     });
 
+    // Add anomaly annotations for better visibility
+    const annotations = this.readings
+      .filter(r => r.isAnomaly)
+      .map(reading => ({
+        x: new Date(reading.timestamp),
+        y: reading.value,
+        text: 'Anomaly',
+        showarrow: true,
+        arrowhead: 2,
+        arrowsize: 1,
+        arrowwidth: 2,
+        arrowcolor: '#F44336',
+        font: { color: 'white' },
+        bgcolor: '#F44336',
+        bordercolor: '#F44336'
+      }));
+
     const layout = {
-      title: 'Sensor Readings',
+      title: {
+        text: 'Sensor Readings',
+        font: { size: 24, color: '#333' }
+      },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
       xaxis: {
         title: 'Time',
-        type: 'date'
+        type: 'date',
+        gridcolor: '#eee',
+        linecolor: '#999',
+        tickformat: '%H:%M:%S<br>%b %d'
       },
       yaxis: {
-        title: 'Value'
+        title: 'Value',
+        gridcolor: '#eee',
+        linecolor: '#999'
       },
-      margin: { l: 50, r: 50, b: 50, t: 50, pad: 4 },
+      margin: { l: 60, r: 40, b: 50, t: 80, pad: 0 },
       legend: {
         orientation: 'h',
-        y: -0.2
+        y: -0.2,
+        bgcolor: 'rgba(255,255,255,0.8)',
+        bordercolor: '#ddd',
+        borderwidth: 1
       },
       showlegend: true,
-      hovermode: 'closest'
+      hovermode: 'closest',
+      annotations: annotations,
+      shapes: [
+        // Add threshold line
+        {
+          type: 'line',
+          xref: 'paper',
+          x0: 0,
+          x1: 1,
+          y0: 100, // Threshold value
+          y1: 100,
+          line: {
+            color: 'rgba(255,0,0,0.5)',
+            width: 2,
+            dash: 'dash'
+          }
+        }
+      ]
     };
 
     const config = {
-      responsive: true
+      responsive: true,
+      displayModeBar: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ['lasso2d', 'select2d']
     };
 
     Plotly.newPlot(element, traces, layout, config);

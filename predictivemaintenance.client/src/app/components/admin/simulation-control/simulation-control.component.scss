@@ -1,0 +1,36 @@
+/* src/app/components/admin/simulation-control/simulation-control.component.scss */
+.simulation-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+mat-card {
+  margin-bottom: 20px;
+}
+
+mat-form-field {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.scenario-icon-normal {
+  color: #4CAF50;
+}
+
+.scenario-icon-deterioration {
+  color: #FF9800;
+}
+
+.scenario-icon-failure {
+  color: #F44336;
+}
+
+.scenario-icon-maintenance {
+  color: #2196F3;
+}

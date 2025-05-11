@@ -1,0 +1,52 @@
+// src/styles.scss (convert from CSS to SCSS first)
+// Import all needed modules first
+@use '@angular/material' as mat;
+@use '@angular/material/theming' as theming;
+
+// Define a custom palette
+$pm-primary: mat.define-palette(mat.$blue-palette, 700);
+$pm-accent: mat.define-palette(mat.$cyan-palette, 600, 100, 900);
+$pm-warn: mat.define-palette(mat.$red-palette);
+
+// Create the theme
+$pm-theme: mat.define-light-theme(( color: ( primary: $pm-primary, accent: $pm-accent, warn: $pm-warn, ), typography: mat.define-typography-config( $font-family: 'Roboto, "Helvetica Neue", sans-serif', ), density: 0, ));
+
+// Apply the theme
+@include mat.all-component-themes($pm-theme);
+
+// Custom global styles
+body {
+  background-color: #f9fafc;
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Add gradient backgrounds for status cards
+.status-card {
+  &.operational {
+    background: linear-gradient(135deg, #4CAF50, #2E7D32);
+  }
+
+  &.warning {
+    background: linear-gradient(135deg, #FF9800, #F57C00);
+  }
+
+  &.critical {
+    background: linear-gradient(135deg, #F44336, #C62828);
+  }
+
+  &.maintenance {
+    background: linear-gradient(135deg, #2196F3, #1565C0);
+  }
+}
+
+// Add shadow and hover effects to cards
+mat-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  transition: transform 0.3s, box-shadow 0.3s;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  }
+}

@@ -3,8 +3,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
 
-import { StatusIndicatorComponent } from '../shared/status-indicator/status-indicator.component';
+//import { StatusIndicatorComponent } from '../shared/status-indicator/status-indicator.component';
 import { Equipment } from '../../models/equipment.model';
 import { EquipmentService } from '../../services/equipment.service';
 
@@ -14,147 +15,155 @@ import { EquipmentService } from '../../services/equipment.service';
   imports: [
     CommonModule,
     MatCardModule,
-    StatusIndicatorComponent
+    MatIconModule,
   ],
+  // src/app/components/dashboard/dashboard.component.ts
   template: `
-    <div class="dashboard-container">
+  <div class="dashboard-container">
+    <div class="dashboard-header">
       <h1>Equipment Monitoring Dashboard</h1>
+      <p class="subtitle">Real-time predictive maintenance insights</p>
+    </div>
+    
+    <div class="status-summary">
+      <mat-card class="status-card operational animate-in">
+        <mat-card-content>
+          <div class="status-icon"><mat-icon>check_circle</mat-icon></div>
+          <div class="status-count">{{ getStatusCount('Operational') }}</div>
+          <div class="status-label">Operational</div>
+        </mat-card-content>
+      </mat-card>
       
-      <div class="status-summary">
-        <mat-card class="status-card operational">
-          <mat-card-content>
-            <div class="status-count">{{ getStatusCount('Operational') }}</div>
-            <div class="status-label">Operational</div>
-          </mat-card-content>
-        </mat-card>
-        
-        <mat-card class="status-card warning">
-          <mat-card-content>
-            <div class="status-count">{{ getStatusCount('Warning') }}</div>
-            <div class="status-label">Warning</div>
-          </mat-card-content>
-        </mat-card>
-        
-        <mat-card class="status-card critical">
-          <mat-card-content>
-            <div class="status-count">{{ getStatusCount('Critical') }}</div>
-            <div class="status-label">Critical</div>
-          </mat-card-content>
-        </mat-card>
-        
-        <mat-card class="status-card maintenance">
-          <mat-card-content>
-            <div class="status-count">{{ getStatusCount('UnderMaintenance') }}</div>
-            <div class="status-label">Under Maintenance</div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-      
-      <div class="equipment-grid">
-        <mat-card *ngFor="let equipment of equipmentList" class="equipment-card" 
-                 [class]="getStatusClass(equipment.status)"
-                 (click)="navigateToEquipment(equipment.id)">
+      <!-- Similar cards for Warning, Critical, and UnderMaintenance -->
+    </div>
+    
+    <div class="dashboard-grid">
+      <div class="grid-item large">
+        <mat-card>
           <mat-card-header>
-            <mat-card-title>{{ equipment.name }}</mat-card-title>
-            <mat-card-subtitle>{{ equipment.type }}</mat-card-subtitle>
+            <mat-card-title>Equipment Health Overview</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <div class="equipment-status">
-              <app-status-indicator [status]="equipment.status"></app-status-indicator>
-            </div>
-            <div class="equipment-info">
-              <div>Installed: {{ equipment.installationDate | date:'shortDate' }}</div>
-              <div *ngIf="equipment.lastMaintenanceDate">
-                Last Maintenance: {{ equipment.lastMaintenanceDate | date:'shortDate' }}
-              </div>
+            <div class="health-chart">
+              <!-- Doughnut/Pie visualization showing equipment health breakdown -->
             </div>
           </mat-card-content>
         </mat-card>
       </div>
+      
+      <div class="grid-item">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Upcoming Maintenance</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <!-- Next 3 scheduled maintenance events -->
+          </mat-card-content>
+        </mat-card>
+      </div>
+      
+      <div class="grid-item">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Recent Anomalies</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <!-- List of recent anomalies detected -->
+          </mat-card-content>
+        </mat-card>
+      </div>
+      
+      <!-- Equipment grid below -->
+      <div class="equipment-grid">
+        <!-- Your existing equipment cards with enhanced styling -->
+      </div>
     </div>
-  `,
+  </div>
+`,
   styles: [`
-    .dashboard-container {
-      padding: 16px;
+  .dashboard-container {
+    padding: 24px;
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+  
+  .dashboard-header {
+    margin-bottom: 24px;
+    text-align: left;
+  }
+  
+  .subtitle {
+    color: rgba(0, 0, 0, 0.6);
+    margin-top: -16px;
+  }
+  
+  .status-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .status-card {
+    text-align: center;
+    color: white;
+    border-radius: 12px !important;
+    overflow: hidden;
+  }
+  
+  .status-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  
+  .status-count {
+    font-size: 56px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  
+  .status-label {
+    font-size: 18px;
+    opacity: 0.9;
+    margin-top: 8px;
+  }
+  
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+  }
+  
+  .grid-item.large {
+    grid-column: span 2;
+  }
+  
+  .health-chart {
+    height: 300px;
+  }
+  
+  .equipment-grid {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+  
+  .animate-in {
+    animation: fadeSlideUp 0.5s ease-out;
+  }
+  
+  @keyframes fadeSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
     }
-    
-    .status-summary {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
-    
-    .status-card {
-      text-align: center;
-      color: white;
-    }
-    
-    .status-card.operational {
-      background-color: #4CAF50;
-    }
-    
-    .status-card.warning {
-      background-color: #FF9800;
-    }
-    
-    .status-card.critical {
-      background-color: #F44336;
-    }
-    
-    .status-card.maintenance {
-      background-color: #2196F3;
-    }
-    
-    .status-count {
-      font-size: 48px;
-      font-weight: bold;
-    }
-    
-    .status-label {
-      font-size: 18px;
-    }
-    
-    .equipment-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 16px;
-    }
-    
-    .equipment-card {
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    
-    .equipment-card:hover {
-      transform: translateY(-4px);
-    }
-    
-    .equipment-card.operational {
-      border-left: 4px solid #4CAF50;
-    }
-    
-    .equipment-card.warning {
-      border-left: 4px solid #FF9800;
-    }
-    
-    .equipment-card.critical {
-      border-left: 4px solid #F44336;
-    }
-    
-    .equipment-card.under-maintenance {
-      border-left: 4px solid #2196F3;
-    }
-    
-    .equipment-status {
-      margin: 12px 0;
-    }
-    
-    .equipment-info {
-      margin-top: 8px;
-      color: rgba(0, 0, 0, 0.6);
-    }
-  `]
+  }
+`]
 })
 export class DashboardComponent implements OnInit {
   equipmentList: Equipment[] = [];

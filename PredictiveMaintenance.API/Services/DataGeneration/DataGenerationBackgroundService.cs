@@ -10,7 +10,11 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
     {
         private readonly ILogger<DataGenerationBackgroundService> _logger;
         private readonly ISyntheticDataGenerator _dataGenerator;
-        private readonly TimeSpan _interval = TimeSpan.FromSeconds(10);
+        private readonly TimeSpan _interval = TimeSpan.FromSeconds(3); // More frequent updates
+
+        // Use ConcurrentQueue to accumulate readings for batch processing
+        private readonly object _lock = new object();
+        private bool _isGenerating = false;
 
         public DataGenerationBackgroundService(
             ILogger<DataGenerationBackgroundService> logger,
@@ -26,22 +30,54 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Generating synthetic data batch...");
+                if (!_isGenerating)
+                {
+                    lock (_lock)
+                    {
+                        _isGenerating = true;
+                    }
 
-                try
-                {
-                    // Generate readings for each equipment
-                    await _dataGenerator.GenerateBatchReadingsAsync(4);
+                    try
+                    {
+                        _logger.LogInformation("Generating synthetic data batch...");
+
+                        // Generate readings for all equipment and sensor types
+                        await _dataGenerator.GenerateBatchReadingsAsync(4);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred while generating synthetic data.");
+                    }
+                    finally
+                    {
+                        lock (_lock)
+                        {
+                            _isGenerating = false;
+                        }
+                    }
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, "Error occurred while generating synthetic data.");
+                    _logger.LogDebug("Previous data generation still in progress, skipping cycle.");
                 }
 
                 await Task.Delay(_interval, stoppingToken);
             }
 
             _logger.LogInformation("Data Generation Background Service is stopping.");
+        }
+
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Data Generation Background Service is stopping.");
+
+            // Allow any in-progress operation to complete
+            while (_isGenerating)
+            {
+                await Task.Delay(100, cancellationToken);
+            }
+
+            await base.StopAsync(cancellationToken);
         }
     }
 }

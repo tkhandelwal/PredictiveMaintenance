@@ -43,6 +43,7 @@ import { NavbarComponent } from './components/shared/navbar/navbar.component';
 import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 import { StatusIndicatorComponent } from './components/shared/status-indicator/status-indicator.component';
 import { AppRoutingModule } from './app.routes';
+import { SimulationControlComponent } from './components/admin/simulation-control/simulation-control.component';
 
 @NgModule({
   declarations: [
@@ -54,7 +55,9 @@ import { AppRoutingModule } from './app.routes';
     MaintenanceScheduleComponent,
     NavbarComponent,
     SidebarComponent,
-    StatusIndicatorComponent
+    StatusIndicatorComponent,
+    SimulationControlComponent
+
   ],
   imports: [
     BrowserModule,
