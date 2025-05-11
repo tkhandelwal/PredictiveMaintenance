@@ -1,12 +1,13 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { HttpClientModule } from '@angular/common/http';
+import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { routes } from './app.routes';
 
-import { AppRoutingModule } from './app.routes';
-import { AppComponent } from './app.component';
-
-// Angular Material
+// Angular Material imports
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -28,8 +29,11 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+
 
 // Components
+import { AppComponent } from './app.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { EquipmentListComponent } from './components/equipment/equipment-list/equipment-list.component';
 import { EquipmentDetailComponent } from './components/equipment/equipment-detail/equipment-detail.component';
@@ -38,6 +42,7 @@ import { MaintenanceScheduleComponent } from './components/maintenance/maintenan
 import { NavbarComponent } from './components/shared/navbar/navbar.component';
 import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 import { StatusIndicatorComponent } from './components/shared/status-indicator/status-indicator.component';
+import { AppRoutingModule } from './app.routes';
 
 @NgModule({
   declarations: [
@@ -53,11 +58,12 @@ import { StatusIndicatorComponent } from './components/shared/status-indicator/s
   ],
   imports: [
     BrowserModule,
-    AppRoutingModule,
     BrowserAnimationsModule,
-    
+    HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
+    CommonModule,
+    AppRoutingModule,
 
     // Angular Material
     MatToolbarModule,
@@ -80,7 +86,8 @@ import { StatusIndicatorComponent } from './components/shared/status-indicator/s
     MatDialogModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatMenuModule
   ],
   providers: [],
   bootstrap: [AppComponent]

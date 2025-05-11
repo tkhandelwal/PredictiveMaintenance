@@ -1,7 +1,21 @@
+// src/app/components/shared/sidebar/sidebar.component.ts
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { MatListModule } from '@angular/material/list';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
 
 @Component({
   selector: 'app-sidebar',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatListModule,
+    MatIconModule,
+    MatDividerModule
+  ],
   template: `
     <mat-nav-list>
       <h2 matSubheader>Main Navigation</h2>
@@ -34,20 +48,6 @@ import { Component } from '@angular/core';
         <mat-icon matListItemIcon>assessment</mat-icon>
         <span matListItemTitle>Reports</span>
       </a>
-      
-      <mat-divider></mat-divider>
-      
-      <h2 matSubheader>System</h2>
-      
-      <a mat-list-item routerLink="/settings" routerLinkActive="active">
-        <mat-icon matListItemIcon>settings</mat-icon>
-        <span matListItemTitle>Settings</span>
-      </a>
-      
-      <a mat-list-item routerLink="/help" routerLinkActive="active">
-        <mat-icon matListItemIcon>help</mat-icon>
-        <span matListItemTitle>Help</span>
-      </a>
     </mat-nav-list>
   `,
   styles: [`
@@ -56,12 +56,6 @@ import { Component } from '@angular/core';
       color: #3f51b5;
       font-weight: 500;
     }
-    
-    mat-icon {
-      margin-right: 8px;
-    }
   `]
 })
-export class SidebarComponent {
-
-}
+export class SidebarComponent { }

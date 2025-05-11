@@ -1,4 +1,5 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+// src/app/components/shared/status-indicator/status-indicator.component.ts
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -6,10 +7,10 @@ import { MaintenanceStatus } from '../../../models/equipment.model';
 
 @Component({
   selector: 'app-status-indicator',
-  standalone: true, // Convert to standalone component
+  standalone: true,
   imports: [CommonModule, MatIconModule, MatTooltipModule],
   template: `
-    <div class="status-indicator" [ngClass]="statusClass">
+    <div class="status-indicator" [class]="statusClass">
       <mat-icon [matTooltip]="tooltip">{{ icon }}</mat-icon>
       <span *ngIf="showLabel">{{ status }}</span>
     </div>
@@ -44,18 +45,16 @@ import { MaintenanceStatus } from '../../../models/equipment.model';
     }
   `]
 })
-export class StatusIndicatorComponent implements OnChanges {
-  @Input() status!: MaintenanceStatus; // Use non-null assertion operator
+export class StatusIndicatorComponent {
+  @Input() status!: MaintenanceStatus;
   @Input() showLabel: boolean = true;
 
-  statusClass: string = ''; // Initialize with empty string
-  icon: string = ''; // Initialize with empty string
-  tooltip: string = ''; // Initialize with empty string
+  statusClass: string = '';
+  icon: string = '';
+  tooltip: string = '';
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['status']) {
-      this.updateStatusDisplay();
-    }
+  ngOnChanges(): void {
+    this.updateStatusDisplay();
   }
 
   private updateStatusDisplay(): void {

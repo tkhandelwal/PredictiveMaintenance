@@ -1,11 +1,27 @@
+// src/app/components/equipment/equipment-list/equipment-list.component.ts
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
+import { StatusIndicatorComponent } from '../../shared/status-indicator/status-indicator.component';
 import { Equipment } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
 
 @Component({
   selector: 'app-equipment-list',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    StatusIndicatorComponent
+  ],
   template: `
     <div class="container">
       <h1>Equipment List</h1>
@@ -59,7 +75,7 @@ import { EquipmentService } from '../../../services/equipment.service';
           
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-              [ngClass]="getStatusClass(row.status)"
+              [class]="getStatusClass(row.status)"
               (click)="viewEquipment(row.id)"></tr>
         </table>
       </div>

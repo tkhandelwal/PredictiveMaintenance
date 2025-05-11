@@ -1,7 +1,23 @@
+// src/app/app.component.ts
 import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { MatSidenavModule } from '@angular/material/sidenav';
+
+// Import components
+import { NavbarComponent } from './components/shared/navbar/navbar.component';
+import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatSidenavModule,
+    NavbarComponent,
+    SidebarComponent
+  ],
   template: `
     <div class="app-container">
       <app-navbar (toggleSidebar)="drawer.toggle()"></app-navbar>

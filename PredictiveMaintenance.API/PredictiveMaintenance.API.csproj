@@ -11,12 +11,9 @@
     <SpaProxyServerUrl>https://localhost:19336</SpaProxyServerUrl>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Services\DataGeneration\SyntheticDataGenerator.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <ItemGroup>
     <PackageReference Include="InfluxDB.Client" Version="4.14.0" />
+    <PackageReference Include="InfluxDB3.Client" Version="1.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy">
       <Version>8.*-*</Version>
     </PackageReference>
@@ -31,10 +28,6 @@
     <ProjectReference Include="..\predictivemaintenance.client\predictivemaintenance.client.esproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Services\DataGeneration\SyntheticDataGenerator.cs" />
   </ItemGroup>
 
 </Project>

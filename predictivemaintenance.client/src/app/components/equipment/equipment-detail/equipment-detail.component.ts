@@ -1,11 +1,13 @@
+// src/app/components/equipment/equipment-detail/equipment-detail.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Equipment } from '../../../models/equipment.model';
 import { SensorReading } from '../../../models/sensor-reading.model';
@@ -21,12 +23,12 @@ import { forkJoin } from 'rxjs';
   standalone: true,
   imports: [
     CommonModule,
-    RouterModule,
     MatCardModule,
     MatTableModule,
     MatDividerModule,
     MatIconModule,
     MatButtonModule,
+    MatProgressSpinnerModule,
     StatusIndicatorComponent,
     SensorChartComponent
   ],
@@ -95,7 +97,7 @@ import { forkJoin } from 'rxjs';
             </ng-container>
             
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns';"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
           </table>
         </mat-card-content>
       </mat-card>

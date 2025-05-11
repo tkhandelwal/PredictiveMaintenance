@@ -1,10 +1,21 @@
+// src/app/components/dashboard/dashboard.component.ts
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+
+import { StatusIndicatorComponent } from '../shared/status-indicator/status-indicator.component';
 import { Equipment } from '../../models/equipment.model';
 import { EquipmentService } from '../../services/equipment.service';
 
 @Component({
   selector: 'app-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatCardModule,
+    StatusIndicatorComponent
+  ],
   template: `
     <div class="dashboard-container">
       <h1>Equipment Monitoring Dashboard</h1>
@@ -41,7 +52,7 @@ import { EquipmentService } from '../../services/equipment.service';
       
       <div class="equipment-grid">
         <mat-card *ngFor="let equipment of equipmentList" class="equipment-card" 
-                 [ngClass]="getStatusClass(equipment.status)"
+                 [class]="getStatusClass(equipment.status)"
                  (click)="navigateToEquipment(equipment.id)">
           <mat-card-header>
             <mat-card-title>{{ equipment.name }}</mat-card-title>

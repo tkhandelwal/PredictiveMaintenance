@@ -1,4 +1,13 @@
+// src/app/components/maintenance/maintenance-schedule/maintenance-schedule.component.ts
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+
 import { MaintenanceEvent, MaintenancePriority, MaintenanceType } from '../../../models/maintenance-event.model';
 import { Equipment } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
@@ -7,6 +16,16 @@ import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-maintenance-schedule',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatTableModule,
+    MatChipsModule
+  ],
   template: `
     <div class="container">
       <h1>Maintenance Schedule</h1>
@@ -62,7 +81,7 @@ import { forkJoin } from 'rxjs';
           <!-- Type Column -->
           <ng-container matColumnDef="type">
             <th mat-header-cell *matHeaderCellDef>Type</th>
-            <td mat-cell *matCellDef="let event" [ngClass]="getTypeClass(event.type)">
+            <td mat-cell *matCellDef="let event" [class]="getTypeClass(event.type)">
               {{ event.type }}
             </td>
           </ng-container>
@@ -70,7 +89,7 @@ import { forkJoin } from 'rxjs';
           <!-- Priority Column -->
           <ng-container matColumnDef="priority">
             <th mat-header-cell *matHeaderCellDef>Priority</th>
-            <td mat-cell *matCellDef="let event" [ngClass]="getPriorityClass(event.priority)">
+            <td mat-cell *matCellDef="let event" [class]="getPriorityClass(event.priority)">
               {{ event.priority }}
             </td>
           </ng-container>
@@ -85,7 +104,7 @@ import { forkJoin } from 'rxjs';
           <ng-container matColumnDef="completed">
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let event">
-              <mat-chip color="{{ event.completionDate ? 'primary' : 'warn' }}" selected>
+              <mat-chip [color]="event.completionDate ? 'primary' : 'warn'" selected>
                 {{ event.completionDate ? 'Completed' : 'Pending' }}
               </mat-chip>
             </td>
