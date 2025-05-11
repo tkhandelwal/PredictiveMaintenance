@@ -1,0 +1,6 @@
+@PredictiveMaintenance.Server_HostAddress = http://localhost:5236
+
+GET {{PredictiveMaintenance.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
