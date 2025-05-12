@@ -1,3 +1,4 @@
+// src/app/components/shared/navbar/navbar.component.ts
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -7,6 +8,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { AnomalyNotificationComponent } from '../anomaly-notification/anomaly-notification.component';
 
 @Component({
   selector: 'app-navbar',
@@ -19,7 +21,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatMenuModule,
     MatBadgeModule,
     MatTooltipModule,
-    MatDividerModule
+    MatDividerModule,
+    AnomalyNotificationComponent // Add this import
   ],
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.scss']

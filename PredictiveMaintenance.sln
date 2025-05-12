@@ -7,6 +7,8 @@ Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "predictivemaintenance.clien
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictiveMaintenance.API", "PredictiveMaintenance.API\PredictiveMaintenance.API.csproj", "{E03338B8-52E4-82E8-766D-9C2F558AB141}"
 EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "InfluxDB", "InfluxDB\InfluxDB.pyproj", "{D95FECF5-8A02-4E8C-A1FE-9113E7A7E011}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,6 +25,8 @@ Global
 		{E03338B8-52E4-82E8-766D-9C2F558AB141}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E03338B8-52E4-82E8-766D-9C2F558AB141}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E03338B8-52E4-82E8-766D-9C2F558AB141}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D95FECF5-8A02-4E8C-A1FE-9113E7A7E011}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D95FECF5-8A02-4E8C-A1FE-9113E7A7E011}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

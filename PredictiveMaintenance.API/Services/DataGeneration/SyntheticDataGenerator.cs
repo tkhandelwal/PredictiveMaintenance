@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
+using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
 using System;
 using System.Collections.Generic;
@@ -12,6 +14,7 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
         private readonly ILogger<SyntheticDataGenerator> _logger;
         private readonly IInfluxDbService _influxDbService;
         private readonly Random _random = new Random();
+        private readonly IHubContext<MonitoringHub> _hubContext;
 
         // Add more sensor types for realistic monitoring
         private readonly Dictionary<string, SensorConfig> _sensorConfigs = new Dictionary<string, SensorConfig>
@@ -40,10 +43,11 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
         // Simulation state
         private Dictionary<int, SimulationState> _simulationStates = new Dictionary<int, SimulationState>();
 
-        public SyntheticDataGenerator(ILogger<SyntheticDataGenerator> logger, IInfluxDbService influxDbService)
+        public SyntheticDataGenerator(ILogger<SyntheticDataGenerator> logger, IInfluxDbService influxDbService, IHubContext<MonitoringHub> hubContext)
         {
             _logger = logger;
             _influxDbService = influxDbService;
+            _hubContext = hubContext;
 
             // Initialize trend data for each equipment
             foreach (var equipmentId in _equipmentProfiles.Keys)
@@ -63,30 +67,75 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             }
         }
 
-        public async Task<SensorReading> GenerateSensorReadingAsync(int equipmentId, string sensorType = null)
+        public async Task<SensorReading> GenerateSensorReadingAsync(int equipmentId, string? sensorType = null)
         {
+            // Check if equipment profile exists
             if (!_equipmentProfiles.TryGetValue(equipmentId, out var profile))
             {
                 _logger.LogWarning($"No profile found for equipment {equipmentId}");
-                return null;
+                // Return a minimal valid reading instead of null
+                return new SensorReading
+                {
+                    EquipmentId = equipmentId,
+                    Timestamp = DateTime.UtcNow,
+                    SensorType = "unknown",
+                    Value = 0,
+                    IsAnomaly = false
+                };
             }
 
             // If sensorType is not specified, pick one randomly from the equipment's available sensors
             if (string.IsNullOrEmpty(sensorType))
             {
                 var availableSensors = profile.SensorTypes;
-                sensorType = availableSensors[_random.Next(availableSensors.Length)];
+                if (availableSensors != null && availableSensors.Length > 0)
+                {
+                    sensorType = availableSensors[_random.Next(availableSensors.Length)];
+                }
+                else
+                {
+                    // Handle case where SensorTypes array might be null or empty
+                    sensorType = "default";
+                }
             }
-            else if (!profile.SensorTypes.Contains(sensorType))
+            else if (profile.SensorTypes?.Contains(sensorType) != true)
             {
                 _logger.LogWarning($"Sensor type {sensorType} not available for equipment {equipmentId}");
-                return null;
+                // Return a minimal valid reading instead of null
+                return new SensorReading
+                {
+                    EquipmentId = equipmentId,
+                    Timestamp = DateTime.UtcNow,
+                    SensorType = sensorType,
+                    Value = 0,
+                    IsAnomaly = false
+                };
             }
 
+            // Check if sensor configuration exists
             if (!_sensorConfigs.TryGetValue(sensorType, out var sensorConfig))
             {
                 _logger.LogWarning($"No configuration found for sensor type {sensorType}");
-                return null;
+                // Return a minimal valid reading instead of null
+                return new SensorReading
+                {
+                    EquipmentId = equipmentId,
+                    Timestamp = DateTime.UtcNow,
+                    SensorType = sensorType,
+                    Value = 0,
+                    IsAnomaly = false
+                };
+            }
+
+            // Ensure trend data exists for this equipment and sensor
+            if (!_equipmentTrendData.ContainsKey(equipmentId))
+            {
+                _equipmentTrendData[equipmentId] = new Dictionary<string, TrendData>();
+            }
+
+            if (!_equipmentTrendData[equipmentId].ContainsKey(sensorType))
+            {
+                _equipmentTrendData[equipmentId][sensorType] = new TrendData();
             }
 
             // Get trend data for this equipment and sensor
@@ -108,7 +157,15 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             };
 
             // Store in InfluxDB
-            await _influxDbService.WriteSensorReadingAsync(reading);
+            try
+            {
+                await _influxDbService.WriteSensorReadingAsync(reading);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to write reading to database for equipment {equipmentId}");
+                // Continue execution even if db write fails
+            }
 
             // Update trend data
             UpdateTrendData(trendData, value, isAnomaly);
@@ -132,6 +189,23 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
                     if (reading != null)
                     {
                         readings.Add(reading);
+                        
+                        // Send to clients through SignalR
+                        try 
+                        {
+                            await _hubContext.Clients.Group($"Equipment_{equipmentId}")
+                                .SendAsync("ReceiveSensorReading", reading);
+                            
+                            // Also notify about anomalies
+                            if (reading.IsAnomaly)
+                            {
+                                await _hubContext.Clients.All.SendAsync("AnomalyDetected", reading);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error sending reading to SignalR clients");
+                        }
                     }
                 }
             }
@@ -179,7 +253,7 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             _logger.LogInformation("Reset all equipment simulations to normal mode");
         }
 
-        private double GenerateValue(int equipmentId, string sensorType, SensorConfig sensorConfig,
+        private double GenerateValue(int equipmentId, string sensorType, SensorConfig sensorConfig, 
                                   EquipmentProfile profile, TrendData trendData)
         {
             // Get simulation state for this equipment
@@ -208,82 +282,133 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             // Apply seasonal variation
             double seasonalEffect = Math.Sin(DateTime.Now.DayOfYear / 365.0 * 2 * Math.PI) * 0.05 * baseValue;
 
-            // Random noise component
-            double noise = (_random.NextDouble() * 2 - 1) * sensorConfig.Variance;
+            // Reduced random noise for clearer patterns
+            double noise = (_random.NextDouble() * 2 - 1) * sensorConfig.Variance * 0.3;
+            
+            // Enhanced simulation effects
+            double simulationEffect = 0;
+            
+            switch (simulationState.Mode)
+            {
+                case SimulationMode.Normal:
+                    // Normal operation - minimal effect
+                    break;
+                    
+                case SimulationMode.Failure:
+                    // Calculate dramatic failure effects
+                    double secondsSinceStart = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
+                    double failureFactor = Math.Min(20, secondsSinceStart * 0.5);
+                    
+                    switch (sensorType.ToLower())
+                    {
+                        case "temperature":
+                            // Temperature skyrockets during failure
+                            simulationEffect = sensorConfig.Variance * failureFactor * 3.0;
+                            break;
+                            
+                        case "vibration":
+                            // Vibration increases dramatically 
+                            simulationEffect = sensorConfig.Variance * failureFactor * 4.0;
+                            break;
+                            
+                        case "pressure":
+                            // Pressure fluctuates wildly
+                            simulationEffect = sensorConfig.Variance * failureFactor * 
+                                            Math.Sin(secondsSinceStart * 0.5) * 3.0;
+                            break;
+                            
+                        case "flow":
+                            // Flow drops significantly
+                            simulationEffect = -sensorConfig.Variance * failureFactor * 2.0;
+                            break;
+                            
+                        case "rpm":
+                            // RPM becomes erratic
+                            simulationEffect = sensorConfig.Variance * failureFactor * 
+                                            (Math.Sin(secondsSinceStart * 0.3) + 1) * 2.0;
+                            break;
+                            
+                        default:
+                            // Generic failure pattern
+                            simulationEffect = sensorConfig.Variance * failureFactor * 2.0;
+                            break;
+                    }
+                    break;
+                    
+                case SimulationMode.Deterioration:
+                    // Gradual deterioration effect
+                    double deteriorationTime = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
+                    double deteriorationFactor = Math.Min(15, deteriorationTime * 0.1);
+                    
+                    switch (sensorType.ToLower())
+                    {
+                        case "temperature":
+                            // Temperature gradually increases
+                            simulationEffect = baseValue * 0.006 * deteriorationFactor;
+                            break;
+                            
+                        case "vibration":
+                            // Vibration steadily worsens
+                            simulationEffect = baseValue * 0.01 * deteriorationFactor;
+                            break;
+                            
+                        case "flow":
+                            // Flow gradually decreases
+                            simulationEffect = -baseValue * 0.005 * deteriorationFactor;
+                            break;
+                            
+                        default:
+                            // Generic deterioration pattern
+                            simulationEffect = baseValue * 0.004 * deteriorationFactor;
+                            break;
+                    }
+                    break;
+                    
+                case SimulationMode.Maintenance:
+                    // Maintenance improvement effect
+                    double maintenanceTime = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
+                    double improvementFactor = Math.Min(1.0, maintenanceTime / 20.0);
+                    
+                    switch (sensorType.ToLower())
+                    {
+                        case "temperature":
+                            // Temperature normalizes
+                            simulationEffect = -sensorConfig.Variance * 3.0 * improvementFactor;
+                            break;
+                            
+                        case "vibration":
+                            // Vibration drops significantly
+                            simulationEffect = -sensorConfig.Variance * 4.0 * improvementFactor;
+                            break;
+                            
+                        case "flow":
+                            // Flow improves 
+                            simulationEffect = sensorConfig.Variance * 2.0 * improvementFactor;
+                            break;
+                            
+                        default:
+                            // Generic improvement
+                            simulationEffect = -sensorConfig.Variance * 2.0 * improvementFactor;
+                            break;
+                    }
+                    break;
+            }
 
             // Long-term trend for deteriorating equipment
             double trendEffect = 0;
-            if (profile.IsDeteriorating || simulationState.Mode == SimulationMode.Deterioration)
+            if (profile.IsDeteriorating)
             {
                 // This makes the value gradually drift away from normal over time
-                double trendFactor = profile.IsDeteriorating ? trendData.TrendFactor :
-                    (DateTime.UtcNow - simulationState.StartTime).TotalSeconds * 0.1;
-
+                double trendFactor = trendData.TrendFactor;
                 trendEffect = trendFactor * baseValue * 0.002;
             }
 
-            // Add periodic oscillations for vibration and pressure
-            double oscillation = 0;
-            if (sensorType == "vibration" || sensorType == "pressure")
-            {
-                oscillation = Math.Sin(_random.NextDouble() * Math.PI) * sensorConfig.Variance * 0.5;
-            }
-
-            // Simulate rapid failure
-            double failureEffect = 0;
-            if (simulationState.Mode == SimulationMode.Failure)
-            {
-                // Large jump toward critical values
-                double timeFactorSinceFailure = Math.Min(10, (DateTime.UtcNow - simulationState.StartTime).TotalSeconds * 0.5);
-                failureEffect = sensorConfig.Variance * timeFactorSinceFailure;
-
-                // Push temperature and vibration up, flow down
-                if (sensorType == "flow")
-                {
-                    failureEffect *= -1;
-                }
-            }
-
-            // Simulate maintenance effect (improvement)
-            double maintenanceEffect = 0;
-            if (simulationState.Mode == SimulationMode.Maintenance)
-            {
-                // Gradual improvement toward optimal values
-                double timeFactor = Math.Min(1.0, (DateTime.UtcNow - simulationState.StartTime).TotalSeconds / 30.0);
-                maintenanceEffect = -trendEffect * timeFactor;
-
-                // Reset trend factor gradually
-                trendData.TrendFactor = Math.Max(0, trendData.TrendFactor - 0.1);
-            }
-
-            // Occasionally introduce anomalies
-            double anomalyEffect = 0;
-            if (_random.NextDouble() < CalculateAnomalyProbability(sensorConfig, profile, trendData, simulationState))
-            {
-                // More severe anomalies for deteriorating equipment or failure mode
-                double severityFactor = 3.0;
-                if (profile.IsDeteriorating) severityFactor = 4.0;
-                if (simulationState.Mode == SimulationMode.Deterioration) severityFactor = 4.5;
-                if (simulationState.Mode == SimulationMode.Failure) severityFactor = 6.0;
-
-                anomalyEffect = sensorConfig.Variance * severityFactor * (_random.NextDouble() * 2 - 1);
-
-                // For deteriorating equipment, bias anomalies toward the threshold
-                if ((profile.IsDeteriorating || simulationState.Mode == SimulationMode.Deterioration) && _random.NextDouble() > 0.3)
-                {
-                    double distanceToThreshold = sensorConfig.ThresholdValue - baseValue;
-                    anomalyEffect = Math.Abs(anomalyEffect) * Math.Sign(distanceToThreshold) * 0.7;
-                }
-
-                _anomalyCounter++;
-            }
-
             // Calculate final value
-            double value = baseValue + seasonalEffect + noise + trendEffect + oscillation + anomalyEffect + failureEffect + maintenanceEffect;
-
-            // Ensure value is reasonable
+            double value = baseValue + seasonalEffect + noise + simulationEffect + trendEffect;
+            
+            // Ensure value is reasonable (non-negative)
             value = Math.Max(value, 0);
-
+            
             return Math.Round(value, 2);
         }
 
@@ -319,17 +444,17 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
 
                 case SimulationMode.Deterioration:
                     // Increasing probability over time
-                    probability += (DateTime.UtcNow - simulationState.StartTime).TotalMinutes * 0.001;
+                    probability += (DateTime.UtcNow - simulationState.StartTime).TotalMinutes * 0.002;
                     break;
 
                 case SimulationMode.Failure:
                     // High probability during failure
-                    probability += 0.2;
+                    probability += 0.25;
                     break;
 
                 case SimulationMode.Maintenance:
                     // Lower probability during maintenance
-                    probability *= 0.5;
+                    probability *= 0.3;
                     break;
             }
 
@@ -345,7 +470,7 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
                 probability += trendData.RecentAnomalyCount * 0.01;
             }
 
-            return Math.Min(probability, 0.3); // Cap probability
+            return Math.Min(probability, 0.35); // Cap probability
         }
 
         private void UpdateTrendData(TrendData trendData, double value, bool isAnomaly)

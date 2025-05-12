@@ -38,7 +38,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseInMemoryDatabase("EquipmentMonitoring"));
 
 // Register services
-builder.Services.AddSingleton<IInfluxDbService, InfluxDbService>();
+builder.Services.AddSingleton<IInfluxDbService, InMemoryInfluxDbService>();
+
+//builder.Services.AddSingleton<IInfluxDbService, InfluxDbService>();
 builder.Services.AddScoped<IEquipmentMonitoringService, EquipmentMonitoringService>();
 builder.Services.AddScoped<IPredictiveMaintenanceService, PredictiveMaintenanceService>();
 builder.Services.AddSingleton<ISyntheticDataGenerator, SyntheticDataGenerator>();
