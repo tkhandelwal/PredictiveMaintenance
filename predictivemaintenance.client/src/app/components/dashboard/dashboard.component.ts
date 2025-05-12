@@ -187,7 +187,16 @@ declare const Plotly: any;
 
       const config: any = {
         responsive: true,
-        displayModeBar: false
+        displayModeBar: true, // Show the plotly toolbar
+        displaylogo: false, // Hide the plotly logo
+        modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'],
+        toImageButtonOptions: {
+          format: 'png',
+          filename: 'sensor_readings',
+          height: 500,
+          width: 700,
+          scale: 2
+        }
       };
 
       // Check if chart element exists before creating chart

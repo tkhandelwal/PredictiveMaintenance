@@ -17,6 +17,11 @@ import { MaintenanceService } from '../../../services/maintenance.service';
 import { LoadingService } from '../../../services/loading.service';
 import { Subscription, BehaviorSubject, finalize } from 'rxjs';
 
+// Define an interface for the mappings to solve the TypeScript index signature issue
+interface TypeMappings {
+  [key: string | number]: string | number;
+}
+
 @Component({
   selector: 'app-maintenance-schedule',
   standalone: true,
@@ -251,8 +256,8 @@ export class MaintenanceScheduleComponent implements OnInit, OnDestroy {
   priorityList = ['Low', 'Medium', 'High', 'Critical'];
   typeList = ['Preventive', 'Predictive', 'Corrective', 'Emergency'];
 
-  // Enum mappings to help with numeric/string conversions
-  private typeMappings = {
+  // Fixed the type mappings with proper interfaces to resolve TS7053 error
+  private typeMappings: TypeMappings = {
     0: 'Preventive',
     1: 'Predictive',
     2: 'Corrective',
@@ -263,7 +268,7 @@ export class MaintenanceScheduleComponent implements OnInit, OnDestroy {
     'Emergency': 3
   };
 
-  private priorityMappings = {
+  private priorityMappings: TypeMappings = {
     0: 'Low',
     1: 'Medium',
     2: 'High',
@@ -454,7 +459,7 @@ export class MaintenanceScheduleComponent implements OnInit, OnDestroy {
     }
 
     if (typeof type === 'number') {
-      return this.typeMappings[type] || 'Unknown';
+      return this.typeMappings[type] as string || 'Unknown';
     }
 
     return type.toString();
@@ -469,7 +474,7 @@ export class MaintenanceScheduleComponent implements OnInit, OnDestroy {
     }
 
     if (typeof priority === 'number') {
-      return this.priorityMappings[priority] || 'Unknown';
+      return this.priorityMappings[priority] as string || 'Unknown';
     }
 
     return priority.toString();
@@ -540,8 +545,8 @@ export class MaintenanceScheduleComponent implements OnInit, OnDestroy {
     }
 
     // Try to convert string to number
-    if (typeof priority === 'string') {
-      return this.priorityMappings[priority] || 0;
+    if (typeof priority === 'string' && this.priorityMappings[priority] !== undefined) {
+      return this.priorityMappings[priority] as number;
     }
 
     return 0;

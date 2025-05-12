@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription } from 'rxjs';
 
-import { StatusIndicatorComponent } from '../../shared/status-indicator/status-indicator.component';
+//import { StatusIndicatorComponent } from '../../shared/status-indicator/status-indicator.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner/loading-spinner.component';
 import { Equipment, MaintenanceStatus } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
@@ -22,7 +22,7 @@ import { LoadingService } from '../../../services/loading.service';
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    StatusIndicatorComponent,
+    //StatusIndicatorComponent,
     LoadingSpinnerComponent
   ],
   templateUrl: './equipment-list.component.html',
@@ -69,6 +69,36 @@ export class EquipmentListComponent implements OnInit, OnDestroy {
 
   viewEquipment(id: number): void {
     this.router.navigate(['/equipment', id]);
+  }
+
+  getStatusIcon(status: MaintenanceStatus): string {
+    switch (status) {
+      case MaintenanceStatus.Operational:
+        return 'check_circle';
+      case MaintenanceStatus.Warning:
+        return 'warning';
+      case MaintenanceStatus.Critical:
+        return 'error';
+      case MaintenanceStatus.UnderMaintenance:
+        return 'build';
+      default:
+        return 'help';
+    }
+  }
+
+  getStatusIconClass(status: MaintenanceStatus): string {
+    switch (status) {
+      case MaintenanceStatus.Operational:
+        return 'status-icon operational';
+      case MaintenanceStatus.Warning:
+        return 'status-icon warning';
+      case MaintenanceStatus.Critical:
+        return 'status-icon critical';
+      case MaintenanceStatus.UnderMaintenance:
+        return 'status-icon under-maintenance';
+      default:
+        return 'status-icon';
+    }
   }
 
   getStatusClass(status: MaintenanceStatus): string {

@@ -4,7 +4,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SensorReading } from '../../../models/sensor-reading.model';
 import { SignalRService } from '../../../services/signalr.service';
 import { ThemeService } from '../../../services/theme.service';
-import { Subscription, Subject, fromEvent } from 'rxjs';
+import { Subscription, Subject, fromEvent, config } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
@@ -40,56 +40,63 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
     MatTooltipModule
   ],
   template: `
-    <div class="chart-container">
-      <div class="chart-controls-toolbar">
-        <!-- Time window selection -->
-        <mat-button-toggle-group [(ngModel)]="selectedTimeWindow" (change)="onTimeWindowChange()">
-          <mat-button-toggle value="1m">1m</mat-button-toggle>
-          <mat-button-toggle value="5m">5m</mat-button-toggle>
-          <mat-button-toggle value="10m">10m</mat-button-toggle>
-          <mat-button-toggle value="30m">30m</mat-button-toggle>
-          <mat-button-toggle value="1h">1h</mat-button-toggle>
-          <mat-button-toggle value="4h">4h</mat-button-toggle>
-          <mat-button-toggle value="1d">1d</mat-button-toggle>
-        </mat-button-toggle-group>
+  <div class="chart-container">
+    <div class="chart-controls-toolbar">
+      <!-- Time window selection -->
+      <mat-button-toggle-group [(ngModel)]="selectedTimeWindow" (change)="onTimeWindowChange()">
+        <mat-button-toggle value="1m">1m</mat-button-toggle>
+        <mat-button-toggle value="5m">5m</mat-button-toggle>
+        <mat-button-toggle value="10m">10m</mat-button-toggle>
+        <mat-button-toggle value="30m">30m</mat-button-toggle>
+        <mat-button-toggle value="1h">1h</mat-button-toggle>
+        <mat-button-toggle value="4h">4h</mat-button-toggle>
+        <mat-button-toggle value="1d">1d</mat-button-toggle>
+      </mat-button-toggle-group>
+      
+      <!-- Date/time picker -->
+      <div class="date-time-picker">
+        <mat-form-field appearance="fill">
+          <mat-label>Start date</mat-label>
+          <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate">
+          <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+          <mat-datepicker #startPicker></mat-datepicker>
+        </mat-form-field>
         
-        <!-- Date/time picker -->
-        <div class="date-time-picker">
-          <mat-form-field appearance="fill">
-            <mat-label>Start date</mat-label>
-            <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate">
-            <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-            <mat-datepicker #startPicker></mat-datepicker>
-          </mat-form-field>
-          
-          <mat-form-field appearance="fill">
-            <mat-label>End date</mat-label>
-            <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate">
-            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-            <mat-datepicker #endPicker></mat-datepicker>
-          </mat-form-field>
-          
-          <button mat-raised-button color="primary" (click)="applyDateRange()">Apply</button>
-        </div>
+        <mat-form-field appearance="fill">
+          <mat-label>End date</mat-label>
+          <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate">
+          <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+          <mat-datepicker #endPicker></mat-datepicker>
+        </mat-form-field>
         
-        <!-- Navigation controls -->
-        <div class="chart-navigation">
-          <button mat-icon-button (click)="moveTimePeriod(-1)" matTooltip="Previous time period">
-            <mat-icon>navigate_before</mat-icon>
-          </button>
-          <button mat-icon-button (click)="moveTimePeriod(1)" matTooltip="Next time period">
-            <mat-icon>navigate_next</mat-icon>
-          </button>
-          <button mat-icon-button (click)="resetToLiveData()" 
-                  matTooltip="Return to live data"
-                  [disabled]="isLiveData">
-            <mat-icon>update</mat-icon>
-          </button>
-        </div>
+        <button mat-raised-button color="primary" (click)="applyDateRange()">Apply</button>
       </div>
+      
+      <!-- Navigation controls -->
+      <div class="chart-navigation">
+        <button mat-icon-button (click)="moveTimePeriod(-1)" matTooltip="Previous time period">
+          <mat-icon>navigate_before</mat-icon>
+        </button>
+        <button mat-icon-button (click)="moveTimePeriod(1)" matTooltip="Next time period">
+          <mat-icon>navigate_next</mat-icon>
+        </button>
+        <button mat-icon-button (click)="resetToLiveData()" 
+                matTooltip="Return to live data"
+                [disabled]="isLiveData">
+          <mat-icon>update</mat-icon>
+        </button>
+      </div>
+    </div>
 
-      <!-- Chart area -->
+    <!-- Chart wrapper with proper positioning -->
+    <div class="chart-wrapper">
       <div #chart class="chart"></div>
+      
+      <!-- Connection status indicator -->
+      <div class="connection-status" [class.connected]="connected" [class.disconnected]="!connected">
+        <span class="status-indicator"></span>
+        {{ connected ? 'Real-time data active' : 'Waiting for connection...' }}
+      </div>
       
       <!-- Chart controls (legend) -->
       <div class="chart-controls" *ngIf="chartInitialized && sensorTypes.length > 0">
@@ -107,20 +114,15 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
           <span>{{ anomalyCount }} Anomalies Detected</span>
         </div>
       </div>
-      
-      <!-- Loading overlay -->
-      <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing chart...' }}</p>
-      </div>
-      
-      <!-- Connection status indicator -->
-      <div class="connection-status" [class.connected]="connected" [class.disconnected]="!connected">
-        <span class="status-indicator"></span>
-        {{ connected ? 'Real-time data active' : 'Waiting for connection...' }}
-      </div>
     </div>
-  `,
+    
+    <!-- Loading overlay -->
+    <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing chart...' }}</p>
+    </div>
+  </div>
+`,
   styleUrls: ['./sensor-chart.component.scss']
 })
 export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
@@ -256,12 +258,15 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, After
   }
 
   ngAfterViewInit(): void {
-    // Check chart DOM element after view initialization
+    // Ensure chart is properly sized after view is fully initialized
     setTimeout(() => {
       if (this.chartInitialized && this.chartElement?.nativeElement) {
         this.resizeChart();
+      } else if (this.chartElement?.nativeElement && !this.chartInitialized && this.readings.length > 0) {
+        // If chart not initialized but we have data, try to initialize it
+        this.initChart();
       }
-    }, 100);
+    }, 300);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -535,7 +540,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, After
       // Basic layout - remove fixed height
       const layout: any = {
         autosize: true,
-        margin: { l: 50, r: 20, b: 40, t: 60, pad: 0 },
+        margin: { l: 50, r: 50, b: 50, t: 50, pad: 0 },
         title: {
           text: 'Sensor Readings',
           font: { size: 18, color: this.isDarkTheme ? '#ffffff' : '#333333' }
@@ -547,20 +552,24 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, After
           type: 'date',
           gridcolor: this.isDarkTheme ? '#414141' : '#eee',
           color: this.isDarkTheme ? '#ffffff' : '#333333',
-          range: [this.startDate, this.endDate]
+          range: [this.startDate, this.endDate],
+          autorange: false // Force the range to be respected
         },
         yaxis: {
           title: 'Value',
           gridcolor: this.isDarkTheme ? '#414141' : '#eee',
-          color: this.isDarkTheme ? '#ffffff' : '#333333'
+          color: this.isDarkTheme ? '#ffffff' : '#333333',
+          autorange: true // Let y-axis scale automatically based on data
         },
-        showlegend: false, // We're using our own legend
-        hovermode: 'closest'
-      };
-
-      const config = {
-        responsive: true,
-        displayModeBar: false
+        showlegend: false, // Using our own legend
+        hovermode: 'closest',
+        height: 350, // Explicit height
+        // Add explicit font configuration
+        font: {
+          family: 'Roboto, Arial, sans-serif',
+          size: 12,
+          color: this.isDarkTheme ? '#ffffff' : '#333333'
+        }
       };
 
       try {
@@ -617,10 +626,11 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, After
 
       const containerRect = parentNode.getBoundingClientRect();
 
-      // Set explicit dimensions
-      const width = Math.max(containerRect.width * 0.95, 300); // 95% of container width
-      const height = Math.max(containerRect.height * 0.7, 350); // 70% of container height
+      // Set explicit dimensions - use more precise calculations
+      const width = Math.floor(containerRect.width * 0.98); // 98% of container width
+      const height = Math.max(350, Math.floor(containerRect.height * 0.70)); // Minimum height of 350px
 
+      // Update layout with precise dimensions
       this.ngZone.runOutsideAngular(() => {
         Plotly.relayout(this.chart, {
           width: width,
@@ -628,10 +638,30 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, After
           'xaxis.automargin': true,
           'yaxis.automargin': true,
           margin: { l: 50, r: 20, b: 40, t: 40, pad: 0 }
-        }).catch(e => console.warn('Plotly relayout error:', e));
+        }).catch((e: Error) => {
+          console.warn('Plotly relayout error:', e);
+          // If relayout fails, try a more drastic approach with purge and recreate
+          setTimeout(() => this.recreateChart(), 100);
+        });
       });
     } catch (e) {
       console.error('Error resizing chart:', e);
+    }
+  }
+
+  // Add a recreateChart method to fully rebuild the chart if needed
+  private recreateChart(): void {
+    if (!this.chartElement?.nativeElement) return;
+
+    try {
+      // Clean up existing chart
+      Plotly.purge(this.chartElement.nativeElement);
+      this.chartInitialized = false;
+
+      // Reinitialize chart
+      this.initChart();
+    } catch (e) {
+      console.error('Error recreating chart:', e);
     }
   }
 

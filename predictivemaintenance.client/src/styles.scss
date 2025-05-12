@@ -595,11 +595,17 @@ body.dark-theme {
   }
 
   .mat-button-toggle-group {
+    height: 32px; // Reduce height of the button group
+    line-height: 32px;
     background-color: var(--secondary-bg);
     border-color: var(--border-color);
   }
 
   .mat-button-toggle {
+    height: 32px;
+    line-height: 32px;
+    font-size: 12px; // Smaller font
+    padding: 0 8px; // Less horizontal padding
     color: var(--secondary-text);
 
     &.mat-button-toggle-checked {

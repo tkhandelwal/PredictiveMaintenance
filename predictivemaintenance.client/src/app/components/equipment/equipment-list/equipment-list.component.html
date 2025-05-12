@@ -33,8 +33,12 @@
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let equipment">
-          <app-status-indicator [status]="equipment.status" [showLabel]="false"></app-status-indicator>
-          {{ equipment.status }}
+          <div class="status-indicator-wrapper">
+            <div [ngClass]="getStatusIconClass(equipment.status)">
+              <mat-icon>{{ getStatusIcon(equipment.status) }}</mat-icon>
+            </div>
+            <span>{{ equipment.status }}</span>
+          </div>
         </td>
       </ng-container>
 

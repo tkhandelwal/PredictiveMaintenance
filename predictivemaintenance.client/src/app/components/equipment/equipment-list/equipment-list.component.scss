@@ -34,3 +34,38 @@ tr.critical {
 tr.under-maintenance {
   border-left: 4px solid #2196F3;
 }
+
+.status-indicator-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.status-icon.operational {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.status-icon.warning {
+  background-color: #FF9800;
+  color: white;
+}
+
+.status-icon.critical {
+  background-color: #F44336;
+  color: white;
+}
+
+.status-icon.under-maintenance {
+  background-color: #2196F3;
+  color: white;
+}

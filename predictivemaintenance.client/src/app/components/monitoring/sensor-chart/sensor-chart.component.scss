@@ -2,45 +2,54 @@
 :host {
   display: block;
   height: 100%;
-  min-height: 450px;
+  min-height: 500px;
   width: 100%;
 }
 
 
 .chart-container {
   width: 100%;
-  height: 100%;
-  min-height: 450px;
+  height: 500px;
   display: flex;
   flex-direction: column;
   position: relative;
 }
 
 .chart {
-  flex: 1;
   width: 100%;
-  min-height: 350px;
-  margin: 0 auto;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
-
+.chart-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 350px;
+  overflow: hidden;
+}
 
 .chart-controls {
   position: absolute;
-  top: 70px;
+  top: 10px;
   right: 10px;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .chart-legend {
   background: rgba(255,255,255,0.85);
-  padding: 8px;
+  padding: 2px;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  display: flex;
+  display: initial;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
+  place-content:left;
 }
 
 .legend-item {
@@ -75,7 +84,7 @@
   background: rgba(255,255,255,0.8);
   font-size: 16px;
   color: #666;
-  z-index: 5;
+  z-index: 15;
 }
 
 .chart-loading p {
@@ -86,13 +95,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 6px 8px;
   background-color: #f5f5f5;
+  min-height: auto; // Remove minimum height
   border-bottom: 1px solid #e0e0e0;
   flex-wrap: wrap;
-  flex-shrink: 0; /* Prevent toolbar from shrinking */
-  gap: 12px;
+  gap: 8px;
   z-index: 2;
+  flex-shrink: 0;
 }
 
 .date-time-picker {
