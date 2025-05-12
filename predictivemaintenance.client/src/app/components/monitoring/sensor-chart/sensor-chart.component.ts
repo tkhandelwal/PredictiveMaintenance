@@ -1,11 +1,11 @@
-// src/app/components/monitoring/sensor-chart/sensor-chart.component.ts
-import { Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild, NgZone, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SensorReading } from '../../../models/sensor-reading.model';
 import { SignalRService } from '../../../services/signalr.service';
 import { ThemeService } from '../../../services/theme.service';
-import { Subscription } from 'rxjs';
+import { Subscription, Subject, fromEvent } from 'rxjs';
+import { takeUntil, debounceTime } from 'rxjs/operators';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -121,189 +121,9 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
       </div>
     </div>
   `,
-  styles: [`
-    .chart-container {
-      width: 100%;
-      height: 100%;
-      min-height: 500px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .chart {
-      flex: 1;
-      width: 100%;
-      min-height: 400px;
-    }
-    
-    .chart-controls {
-      position: absolute;
-      top: 70px;
-      right: 10px;
-      z-index: 10;
-    }
-    
-    .chart-legend {
-      background: rgba(255,255,255,0.8);
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #eee;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-right: 8px;
-    }
-
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    .legend-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: #333;
-    }
-    
-    .chart-loading {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: rgba(255,255,255,0.8);
-      font-size: 16px;
-      color: #666;
-      z-index: 5;
-    }
-    
-    .chart-loading p {
-      margin-top: 16px;
-    }
-    
-    .chart-controls-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px;
-      background-color: #f5f5f5;
-      border-bottom: 1px solid #e0e0e0;
-      flex-wrap: wrap;
-      gap: 8px;
-      z-index: 2;
-    }
-    
-    .date-time-picker {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .chart-navigation {
-      display: flex;
-      align-items: center;
-    }
-    
-    .anomaly-legend {
-      background: rgba(244, 67, 54, 0.1);
-      border: 1px solid rgba(244, 67, 54, 0.5);
-      border-radius: 4px;
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      color: #d32f2f;
-      font-weight: 500;
-      animation: pulse 2s infinite;
-    }
-    
-    .anomaly-indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #d32f2f;
-      margin-right: 8px;
-      box-shadow: 0 0 8px #d32f2f;
-    }
-
-    .connection-status {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.1);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      z-index: 10;
-    }
-
-    .status-indicator {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .connected .status-indicator {
-      background-color: #4CAF50;
-      box-shadow: 0 0 5px #4CAF50;
-    }
-
-    .disconnected .status-indicator {
-      background-color: #f44336;
-      animation: blink 1s infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
-      }
-      70% {
-        box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
-      }
-    }
-    
-    @media (max-width: 768px) {
-      .chart-controls-toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      
-      .date-time-picker {
-        flex-direction: column;
-        width: 100%;
-      }
-      
-      mat-form-field {
-        width: 100%;
-      }
-    }
-  `]
+  styleUrls: ['./sensor-chart.component.scss']
 })
-export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
+export class SensorChartComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @ViewChild('chart', { static: true }) chartElement!: ElementRef;
   @Input() equipmentId!: number;
   @Input() readings: SensorReading[] = [];
@@ -313,6 +133,8 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   isLoading = true;
   connected = false;
   private subscriptions: Subscription[] = [];
+  private destroy$ = new Subject<void>();
+  private resizeSubject = new Subject<void>();
   private readingsMap: Map<string, SensorReading[]> = new Map();
   sensorTypes: string[] = [];
   anomalyCount = 0;
@@ -341,8 +163,15 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private signalRService: SignalRService,
-    private themeService: ThemeService
-  ) { }
+    private themeService: ThemeService,
+    private ngZone: NgZone
+  ) {
+    // Set up debounced resize handling
+    this.resizeSubject.pipe(
+      debounceTime(200),
+      takeUntil(this.destroy$)
+    ).subscribe(() => this.resizeChart());
+  }
 
   ngOnInit(): void {
     console.log(`Initializing chart for equipment ${this.equipmentId}`);
@@ -419,6 +248,20 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
     // Set up a polling fallback for when SignalR isn't working
     this.setupPollingFallback();
+
+    // Listen for window resize events
+    fromEvent(window, 'resize')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.resizeSubject.next());
+  }
+
+  ngAfterViewInit(): void {
+    // Check chart DOM element after view initialization
+    setTimeout(() => {
+      if (this.chartInitialized && this.chartElement?.nativeElement) {
+        this.resizeChart();
+      }
+    }, 100);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -436,6 +279,9 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
     this.subscriptions.forEach(sub => sub.unsubscribe());
 
     if (this.updateInterval) {
@@ -686,10 +532,10 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         traces.push(...anomalyTraces);
       }
 
-      // Basic layout
+      // Basic layout - remove fixed height
       const layout: any = {
         autosize: true,
-        height: 350,
+        margin: { l: 50, r: 20, b: 40, t: 60, pad: 0 },
         title: {
           text: 'Sensor Readings',
           font: { size: 18, color: this.isDarkTheme ? '#ffffff' : '#333333' }
@@ -708,7 +554,6 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
           gridcolor: this.isDarkTheme ? '#414141' : '#eee',
           color: this.isDarkTheme ? '#ffffff' : '#333333'
         },
-        margin: { l: 50, r: 20, b: 40, t: 60, pad: 0 },
         showlegend: false, // We're using our own legend
         hovermode: 'closest'
       };
@@ -719,8 +564,11 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       };
 
       try {
-        // Create the plot
-        Plotly.newPlot(element, traces, layout, config);
+        // Create the plot - run outside Angular zone to improve performance
+        this.ngZone.runOutsideAngular(() => {
+          Plotly.newPlot(element, traces, layout, config);
+        });
+
         this.chart = element;
         this.chartInitialized = true;
         this.isLoading = false;
@@ -740,15 +588,8 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
           }
         });
 
-        // Handle resizing
-        const resizeObserver = new ResizeObserver(() => {
-          this.resizeChart();
-        });
-
-        resizeObserver.observe(element.parentElement);
-
-        // Also listen for window resize
-        window.addEventListener('resize', this.resizeChart.bind(this));
+        // Call resize to ensure correct sizing
+        setTimeout(() => this.resizeChart(), 100);
       } catch (e) {
         console.error('Error initializing chart:', e);
         this.isLoading = false;
@@ -761,15 +602,34 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  // sensor-chart.component.ts - Fix
   private resizeChart(): void {
     if (!this.chart || !this.chartInitialized) return;
 
     try {
-      // Only proceed if the chart element is visible and has dimensions
+      // Get element references
       const element = this.chartElement?.nativeElement;
-      if (element && element.offsetWidth > 0 && element.offsetHeight > 0) {
-        Plotly.Plots.resize(this.chart);
-      }
+      if (!element) return;
+
+      // Calculate available space
+      const parentNode = element.parentElement;
+      if (!parentNode) return;
+
+      const containerRect = parentNode.getBoundingClientRect();
+
+      // Set explicit dimensions
+      const width = Math.max(containerRect.width * 0.95, 300); // 95% of container width
+      const height = Math.max(containerRect.height * 0.7, 350); // 70% of container height
+
+      this.ngZone.runOutsideAngular(() => {
+        Plotly.relayout(this.chart, {
+          width: width,
+          height: height,
+          'xaxis.automargin': true,
+          'yaxis.automargin': true,
+          margin: { l: 50, r: 20, b: 40, t: 40, pad: 0 }
+        }).catch(e => console.warn('Plotly relayout error:', e));
+      });
     } catch (e) {
       console.error('Error resizing chart:', e);
     }
@@ -795,7 +655,9 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         }
       };
 
-      Plotly.relayout(this.chart, layout);
+      this.ngZone.runOutsideAngular(() => {
+        Plotly.relayout(this.chart, layout);
+      });
     } catch (e) {
       console.error('Error updating chart theme:', e);
     }
@@ -873,7 +735,9 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       };
 
       // Update chart
-      Plotly.react(this.chart, allTraces, layout);
+      this.ngZone.runOutsideAngular(() => {
+        Plotly.react(this.chart, allTraces, layout);
+      });
       console.log('Chart updated successfully with', allTraces.length, 'traces');
     } catch (e) {
       console.error('Error updating chart:', e);
