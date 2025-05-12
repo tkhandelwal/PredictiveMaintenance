@@ -9,7 +9,9 @@
 
   <button mat-icon-button matTooltip="Notifications">
     <mat-icon [matBadge]="notificationCount" matBadgeColor="warn"
-              [matBadgeHidden]="notificationCount === 0">
+              [matBadgeHidden]="notificationCount === 0"
+              aria-hidden="false"
+              [attr.aria-label]="'You have ' + notificationCount + ' notifications'">
       notifications
     </mat-icon>
   </button>

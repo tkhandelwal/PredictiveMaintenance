@@ -15,6 +15,7 @@ import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinn
 
 declare const Plotly: any;
 
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -30,12 +31,13 @@ declare const Plotly: any;
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit, OnDestroy {
-  equipmentList: Equipment[] = [];
-  upcomingMaintenance: any[] = [];
-  recentAnomalies: any[] = [];
-  isLoading = false;
-  private subscriptions: Subscription[] = [];
+  export class DashboardComponent implements OnInit, OnDestroy {
+    MaintenanceStatus = MaintenanceStatus;
+    equipmentList: Equipment[] = [];
+    upcomingMaintenance: any[] = [];
+    recentAnomalies: any[] = [];
+    isLoading = false;
+    private subscriptions: Subscription[] = [];
 
   constructor(
     private equipmentService: EquipmentService,
@@ -92,7 +94,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ];
   }
 
-  getStatusCount(status: string): number {
+  getStatusCount(status: MaintenanceStatus): number {
     return this.equipmentList.filter(e => e.status === status).length;
   }
 
@@ -100,7 +102,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate(['/equipment', id]);
   }
 
-  filterByStatus(status: string): void {
+  filterByStatus(status: MaintenanceStatus): void {
     this.router.navigate(['/equipment'], { queryParams: { status } });
   }
 
@@ -142,17 +144,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private initHealthChart(): void {
-    // Get status counts for the chart
-    const statuses = ['Operational', 'Warning', 'Critical', 'UnderMaintenance'];
-    const counts = statuses.map(status => this.getStatusCount(status));
+  initHealthChart(): void {
+    // Map enum values to display names
+    const statusMapping = {
+      [MaintenanceStatus.Operational]: 'Operational',
+      [MaintenanceStatus.Warning]: 'Warning',
+      [MaintenanceStatus.Critical]: 'Critical',
+      [MaintenanceStatus.UnderMaintenance]: 'Under Maintenance'
+    };
+
+    // Get values for the chart
+    const statuses = Object.values(MaintenanceStatus).filter(value => typeof value === 'number');
+    const statusLabels = statuses.map(status => statusMapping[status as MaintenanceStatus]);
+    const counts = statuses.map(status => this.getStatusCount(status as MaintenanceStatus));
+
 
     // Check if Plotly is available
     if (typeof Plotly !== 'undefined') {
-      // Create a pie chart with Plotly - using type assertion to fix TypeScript error
-      const data: any[] = [{
+      const data = [{
         values: counts,
-        labels: statuses,
+        labels: statusLabels,
         type: 'pie',
         hole: 0.4,
         marker: {

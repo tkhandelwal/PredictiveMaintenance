@@ -5,34 +5,34 @@
   </div>
 
   <div class="status-summary">
-    <mat-card class="status-card operational animate-in" (click)="filterByStatus('Operational')">
+    <mat-card class="status-card operational animate-in" (click)="filterByStatus(MaintenanceStatus.Operational)">
       <mat-card-content>
         <div class="status-icon"><mat-icon>check_circle</mat-icon></div>
-        <div class="status-count">{{ getStatusCount('Operational') }}</div>
+        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Operational) }}</div>
         <div class="status-label">Operational</div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="status-card warning animate-in" (click)="filterByStatus('Warning')" style="animation-delay: 0.1s">
+    <mat-card class="status-card warning animate-in" (click)="filterByStatus(MaintenanceStatus.Warning)" style="animation-delay: 0.1s">
       <mat-card-content>
         <div class="status-icon"><mat-icon>warning</mat-icon></div>
-        <div class="status-count">{{ getStatusCount('Warning') }}</div>
+        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Warning) }}</div>
         <div class="status-label">Warning</div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="status-card critical animate-in" (click)="filterByStatus('Critical')" style="animation-delay: 0.2s">
+    <mat-card class="status-card critical animate-in" (click)="filterByStatus(MaintenanceStatus.Critical)" style="animation-delay: 0.2s">
       <mat-card-content>
         <div class="status-icon"><mat-icon>error</mat-icon></div>
-        <div class="status-count">{{ getStatusCount('Critical') }}</div>
+        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Critical) }}</div>
         <div class="status-label">Critical</div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="status-card under-maintenance animate-in" (click)="filterByStatus('UnderMaintenance')" style="animation-delay: 0.3s">
+    <mat-card class="status-card under-maintenance animate-in" (click)="filterByStatus(MaintenanceStatus.UnderMaintenance)" style="animation-delay: 0.3s">
       <mat-card-content>
         <div class="status-icon"><mat-icon>build</mat-icon></div>
-        <div class="status-count">{{ getStatusCount('UnderMaintenance') }}</div>
+        <div class="status-count">{{ getStatusCount(MaintenanceStatus.UnderMaintenance) }}</div>
         <div class="status-label">Under Maintenance</div>
       </mat-card-content>
     </mat-card>

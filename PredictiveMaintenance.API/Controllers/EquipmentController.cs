@@ -127,6 +127,50 @@ namespace PredictiveMaintenance.API.Controllers
             }
         }
 
+        [HttpPost("simulate/stop")]
+        public ActionResult StopSimulation([FromBody] StopSimulationRequest request)
+        {
+            try
+            {
+                if (request == null || request.EquipmentId <= 0)
+                {
+                    return BadRequest("Invalid request");
+                }
+
+                _logger.LogInformation($"Stopping simulation for equipment {request.EquipmentId}");
+
+                // Check if equipment exists
+                var equipment = _monitoringService.GetEquipmentByIdAsync(request.EquipmentId).Result;
+                if (equipment == null)
+                {
+                    return NotFound($"Equipment with ID {request.EquipmentId} not found");
+                }
+
+                // Reset simulation for this equipment only
+                _dataGenerator.SetSimulationMode(request.EquipmentId, SimulationMode.Normal);
+
+                // Notify clients via SignalR
+                _hubContext.Clients.All.SendAsync("SimulationComplete", new
+                {
+                    EquipmentId = request.EquipmentId,
+                    ScenarioType = "Normal",
+                    EndTime = DateTime.UtcNow
+                }).Wait();
+
+                return Ok(new { Message = $"Simulation stopped for equipment {request.EquipmentId}" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error stopping simulation for equipment {request.EquipmentId}");
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        public class StopSimulationRequest
+        {
+            public int EquipmentId { get; set; }
+        }
+
         [HttpPost("simulate/reset")]
         public ActionResult ResetSimulations()
         {
@@ -147,7 +191,7 @@ namespace PredictiveMaintenance.API.Controllers
     public class SimulationRequest
     {
         public int EquipmentId { get; set; }
-        public string ScenarioType { get; set; } // "Normal", "Deterioration", "Failure", "Maintenance"
+        public string ScenarioType { get; set; } = "Normal"; // Initialize with default value
         public int Duration { get; set; } = 60; // Seconds
     }
 }

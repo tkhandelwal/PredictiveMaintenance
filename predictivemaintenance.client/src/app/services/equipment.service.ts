@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Equipment, MaintenanceStatus } from '../models/equipment.model';
 import { SensorReading } from '../models/sensor-reading.model';
@@ -49,7 +49,8 @@ export class EquipmentService {
       tap(data => this.cacheService.set(cacheKey, data, 60)),
       catchError(error => {
         this.errorService.handleError(error, `Error loading equipment ${id}`);
-        throw error;
+        // Return a more appropriate error that won't break the UI
+        return throwError(() => new Error(`Failed to load equipment ${id}`));
       })
     );
   }

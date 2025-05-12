@@ -93,13 +93,14 @@ export class SignalRService {
   }
 
   private resubscribeToGroups(): void {
-    // Resubscribe to all previously subscribed equipment
-    if (this.subscribedEquipment.size > 0) {
+    // Only attempt to resubscribe if we're connected
+    if (this.connectionIsEstablished && this.subscribedEquipment.size > 0) {
       console.log('Resubscribing to equipment groups...');
       this.subscribedEquipment.forEach(equipmentId => {
-        this.subscribeToEquipment(equipmentId).catch(err => {
-          console.error(`Error resubscribing to equipment ${equipmentId}:`, err);
-        });
+        this.hubConnection.invoke('SubscribeToEquipment', equipmentId)
+          .catch(err => {
+            console.error(`Error resubscribing to equipment ${equipmentId}:`, err);
+          });
       });
     }
   }

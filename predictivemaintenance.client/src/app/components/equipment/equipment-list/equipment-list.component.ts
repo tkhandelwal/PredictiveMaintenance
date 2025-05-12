@@ -9,7 +9,7 @@ import { Subscription } from 'rxjs';
 
 import { StatusIndicatorComponent } from '../../shared/status-indicator/status-indicator.component';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner/loading-spinner.component';
-import { Equipment } from '../../../models/equipment.model';
+import { Equipment, MaintenanceStatus } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
 import { LoadingService } from '../../../services/loading.service';
 
@@ -18,7 +18,7 @@ import { LoadingService } from '../../../services/loading.service';
   standalone: true,
   imports: [
     CommonModule,
-    MatTableModule,  // Make sure this is here
+    MatTableModule,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
@@ -29,6 +29,8 @@ import { LoadingService } from '../../../services/loading.service';
   styleUrls: ['./equipment-list.component.scss']
 })
 export class EquipmentListComponent implements OnInit, OnDestroy {
+  MaintenanceStatus = MaintenanceStatus;
+
   displayedColumns: string[] = ['name', 'type', 'installationDate', 'lastMaintenanceDate', 'status', 'actions'];
   dataSource = new MatTableDataSource<Equipment>([]);
   isLoading = false;
@@ -69,7 +71,18 @@ export class EquipmentListComponent implements OnInit, OnDestroy {
     this.router.navigate(['/equipment', id]);
   }
 
-  getStatusClass(status: string): string {
-    return status.toLowerCase().replace(/\s/g, '-');
+  getStatusClass(status: MaintenanceStatus): string {
+    switch (status) {
+      case MaintenanceStatus.Operational:
+        return 'operational';
+      case MaintenanceStatus.Warning:
+        return 'warning';
+      case MaintenanceStatus.Critical:
+        return 'critical';
+      case MaintenanceStatus.UnderMaintenance:
+        return 'under-maintenance';
+      default:
+        return '';
+    }
   }
 }
