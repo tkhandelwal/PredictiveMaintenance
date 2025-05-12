@@ -1,9 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-using PredictiveMaintenance.API.Models;
+﻿using PredictiveMaintenance.API.Models;
 using PredictiveMaintenance.API.Services.MachineLearning;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Services.Monitoring
 {

@@ -4,8 +4,6 @@ using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
 using PredictiveMaintenance.API.Services.DataGeneration;
 using PredictiveMaintenance.API.Services.Monitoring;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Controllers
 {

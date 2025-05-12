@@ -1,16 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
-using PredictiveMaintenance.API.Services.DataGeneration;
 using PredictiveMaintenance.API.Services.Monitoring;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Services.DataGeneration
 {

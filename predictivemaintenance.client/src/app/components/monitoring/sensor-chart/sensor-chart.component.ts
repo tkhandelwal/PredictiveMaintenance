@@ -5,7 +5,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SensorReading } from '../../../models/sensor-reading.model';
 import { SignalRService } from '../../../services/signalr.service';
 import { ThemeService } from '../../../services/theme.service';
-import { Subscription, interval } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -43,7 +43,7 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
     <div class="chart-container">
       <div class="chart-controls-toolbar">
         <!-- Time window selection -->
-        <mat-button-toggle-group [(ngModel)]="selectedTimeWindow" (change)="onTimeWindowChange($event)">
+        <mat-button-toggle-group [(ngModel)]="selectedTimeWindow" (change)="onTimeWindowChange()">
           <mat-button-toggle value="1m">1m</mat-button-toggle>
           <mat-button-toggle value="5m">5m</mat-button-toggle>
           <mat-button-toggle value="10m">10m</mat-button-toggle>
@@ -88,14 +88,11 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
         </div>
       </div>
 
+      <!-- Chart area -->
       <div #chart class="chart"></div>
       
-      <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing chart...' }}</p>
-      </div>
-      
-      <div class="chart-controls" *ngIf="chartInitialized">
+      <!-- Chart controls (legend) -->
+      <div class="chart-controls" *ngIf="chartInitialized && sensorTypes.length > 0">
         <div class="chart-legend">
           <ng-container *ngFor="let sensor of sensorTypes">
             <div class="legend-item">
@@ -111,6 +108,13 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
         </div>
       </div>
       
+      <!-- Loading overlay -->
+      <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing chart...' }}</p>
+      </div>
+      
+      <!-- Connection status indicator -->
       <div class="connection-status" [class.connected]="connected" [class.disconnected]="!connected">
         <span class="status-indicator"></span>
         {{ connected ? 'Real-time data active' : 'Waiting for connection...' }}
@@ -131,7 +135,43 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
       flex: 1;
       width: 100%;
       min-height: 400px;
-      overflow: hidden;
+    }
+    
+    .chart-controls {
+      position: absolute;
+      top: 70px;
+      right: 10px;
+      z-index: 10;
+    }
+    
+    .chart-legend {
+      background: rgba(255,255,255,0.8);
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #eee;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-right: 8px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .legend-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #333;
     }
     
     .chart-loading {
@@ -177,43 +217,6 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
       align-items: center;
     }
     
-    .chart-controls {
-      position: absolute;
-      top: 70px;
-      right: 10px;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .chart-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      background: rgba(255,255,255,0.8);
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #eee;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-
-    .legend-label {
-      font-size: 12px;
-      font-weight: 500;
-    }
-    
     .anomaly-legend {
       background: rgba(244, 67, 54, 0.1);
       border: 1px solid rgba(244, 67, 54, 0.5);
@@ -246,6 +249,7 @@ type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
       display: flex;
       align-items: center;
       gap: 6px;
+      z-index: 10;
     }
 
     .status-indicator {
@@ -335,11 +339,6 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     '1d': { days: 1 }
   };
 
-  // Performance optimization properties
-  private pendingUpdate = false;
-  private readonly updateThrottleMs = 300; // Limit updates to every 300ms
-  private lastUpdateTime = 0;
-
   constructor(
     private signalRService: SignalRService,
     private themeService: ThemeService
@@ -387,8 +386,6 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
           if (reading.isAnomaly) {
             this.anomalyCount++;
-            // Play audio alert for anomalies
-            this.playAnomalyAlert();
             console.log(`Anomaly detected! Total anomalies: ${this.anomalyCount}`);
           }
         }
@@ -400,7 +397,6 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       this.signalRService.getStatusChanges().subscribe(statusChange => {
         if (statusChange && statusChange.equipmentId === this.equipmentId) {
           console.log(`Status changed for equipment ${this.equipmentId}: ${statusChange.currentStatus}`);
-          // Update UI elements based on status change if needed
         }
       })
     );
@@ -414,20 +410,12 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         console.error(`Error subscribing to equipment ${this.equipmentId}:`, err);
       });
 
-    // Set up a periodic refresh to ensure chart is updated
+    // Set up a periodic refresh
     this.updateInterval = setInterval(() => {
       if (this.chartInitialized) {
         this.updateChart();
       }
-    }, 10000); // Refresh every 10 seconds as a backup
-
-    // Set up periodic chart reinitialization to avoid stale data
-    this.refreshTimer = setInterval(() => {
-      if (this.chartInitialized) {
-        console.log('Performing periodic chart refresh');
-        this.reinitializeChart();
-      }
-    }, 5 * 60 * 1000); // Every 5 minutes
+    }, 10000); // Refresh every 10 seconds
 
     // Set up a polling fallback for when SignalR isn't working
     this.setupPollingFallback();
@@ -469,7 +457,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       });
 
     // Clean up Plotly chart
-    if (this.chart) {
+    if (this.chart && this.chartInitialized) {
       try {
         Plotly.purge(this.chart);
       } catch (e) {
@@ -479,7 +467,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   // Time navigation methods
-  onTimeWindowChange(event: any): void {
+  onTimeWindowChange(): void {
     this.isLiveData = true;
     this.updateTimeRange();
     this.updateChart();
@@ -565,35 +553,9 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       // Only use polling if SignalR is not connected
       if (!this.connected && this.equipmentId) {
         console.log('SignalR not connected, using polling fallback');
-        // This would be implemented with an API call to get latest readings
-        // For now, we'll just show a "disconnected" status in the chart
+        // In a real app, you would implement an HTTP fallback here
       }
     }, 20000); // Poll every 20 seconds
-  }
-
-  private playAnomalyAlert(): void {
-    try {
-      const audio = new Audio('assets/sounds/anomaly-alert.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('Audio play error:', e));
-    } catch (e) {
-      console.error('Error playing alert sound:', e);
-    }
-  }
-
-  private reinitializeChart(): void {
-    if (!this.chartElement || !this.chartElement.nativeElement) return;
-
-    if (this.chart) {
-      try {
-        Plotly.purge(this.chart);
-      } catch (e) {
-        console.error('Error purging chart:', e);
-      }
-    }
-
-    this.chartInitialized = false;
-    this.initChart();
   }
 
   private organizeReadings(): void {
@@ -623,6 +585,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
     // Update sensor types list for legend
     this.sensorTypes = Array.from(this.readingsMap.keys());
+    console.log(`Initialized sensor types: ${this.sensorTypes.join(', ')}`);
   }
 
   private loadPlotlyScript(): Promise<void> {
@@ -644,18 +607,21 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private initChart(): void {
-    const element = this.chartElement?.nativeElement;
-    if (!element) {
+    // Make sure chartElement exists
+    if (!this.chartElement || !this.chartElement.nativeElement) {
       console.error('Chart element not found');
       return;
     }
 
+    const element = this.chartElement.nativeElement;
+
+    // Make sure Plotly is available
     if (!this.plotlyAvailable) {
       console.log('Plotly not available yet, deferring chart initialization');
       return;
     }
 
-    console.log('Initializing chart with', this.readingsMap.size, 'sensor types');
+    console.log(`Initializing chart with ${this.readingsMap.size} sensor types`);
 
     try {
       // Create traces for each sensor type
@@ -673,7 +639,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
           line: { dash: 'dash', color: '#cccccc' }
         });
       } else {
-        // Create traces for each sensor type - split normal and anomaly data
+        // Create traces for each sensor type
         this.readingsMap.forEach((readings, sensorType) => {
           // Normal data trace
           const normalData = readings.filter(r => !r.isAnomaly);
@@ -723,10 +689,10 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       // Basic layout
       const layout: any = {
         autosize: true,
-        height: 400,
+        height: 350,
         title: {
           text: 'Sensor Readings',
-          font: { size: 24, color: this.isDarkTheme ? '#ffffff' : '#333333' }
+          font: { size: 18, color: this.isDarkTheme ? '#ffffff' : '#333333' }
         },
         paper_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
         plot_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
@@ -742,39 +708,18 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
           gridcolor: this.isDarkTheme ? '#414141' : '#eee',
           color: this.isDarkTheme ? '#ffffff' : '#333333'
         },
-        margin: { l: 60, r: 40, b: 50, t: 80, pad: 0 },
+        margin: { l: 50, r: 20, b: 40, t: 60, pad: 0 },
         showlegend: false, // We're using our own legend
-        hovermode: 'closest',
-        annotations: this.anomalyCount > 0 ? [
-          {
-            x: 0.5,
-            y: 1.12,
-            xref: 'paper',
-            yref: 'paper',
-            text: `⚠️ ${this.anomalyCount} Anomalies Detected`,
-            showarrow: false,
-            font: {
-              family: 'Arial',
-              size: 16,
-              color: '#F44336',
-              weight: 'bold'
-            },
-          }
-        ] : []
+        hovermode: 'closest'
       };
 
       const config = {
         responsive: true,
-        displayModeBar: true,
-        displaylogo: false,
-        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-        toImageButtonOptions: {
-          format: 'png',
-          filename: `equipment-${this.equipmentId}-readings`,
-        }
+        displayModeBar: false
       };
 
       try {
+        // Create the plot
         Plotly.newPlot(element, traces, layout, config);
         this.chart = element;
         this.chartInitialized = true;
@@ -796,6 +741,13 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         });
 
         // Handle resizing
+        const resizeObserver = new ResizeObserver(() => {
+          this.resizeChart();
+        });
+
+        resizeObserver.observe(element.parentElement);
+
+        // Also listen for window resize
         window.addEventListener('resize', this.resizeChart.bind(this));
       } catch (e) {
         console.error('Error initializing chart:', e);
@@ -813,7 +765,11 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.chart || !this.chartInitialized) return;
 
     try {
-      Plotly.Plots.resize(this.chart);
+      // Only proceed if the chart element is visible and has dimensions
+      const element = this.chartElement?.nativeElement;
+      if (element && element.offsetWidth > 0 && element.offsetHeight > 0) {
+        Plotly.Plots.resize(this.chart);
+      }
     } catch (e) {
       console.error('Error resizing chart:', e);
     }
@@ -860,7 +816,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     }
 
     try {
-      // Recreate traces - separate normal and anomaly data
+      // Recreate traces
       const allTraces: any[] = [];
       const anomalyTraces: any[] = [];
 
@@ -913,26 +869,10 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       const layout = {
         xaxis: {
           range: [this.startDate, this.endDate]
-        },
-        annotations: this.anomalyCount > 0 ? [
-          {
-            x: 0.5,
-            y: 1.12,
-            xref: 'paper',
-            yref: 'paper',
-            text: `⚠️ ${this.anomalyCount} Anomalies Detected`,
-            showarrow: false,
-            font: {
-              family: 'Arial',
-              size: 16,
-              color: '#F44336',
-              weight: 'bold'
-            },
-          }
-        ] : []
+        }
       };
 
-      // Update full chart data
+      // Update chart
       Plotly.react(this.chart, allTraces, layout);
       console.log('Chart updated successfully with', allTraces.length, 'traces');
     } catch (e) {
@@ -972,39 +912,12 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     // Only update if in live mode
     if (!this.isLiveData) return;
 
-    // Throttle updates to avoid excessive redraws
-    const now = Date.now();
-    if (now - this.lastUpdateTime < this.updateThrottleMs) {
-      if (!this.pendingUpdate) {
-        this.pendingUpdate = true;
-        setTimeout(() => {
-          this.updateChart();
-          this.pendingUpdate = false;
-          this.lastUpdateTime = Date.now();
-        }, this.updateThrottleMs);
-      }
-      return;
-    }
-
-    // If we can update now, do it immediately
+    // Update the chart
     this.updateChart();
-    this.lastUpdateTime = now;
-  }
-
-  private findTraceIndex(traceName: string): number {
-    if (!this.chart || !this.chart.data) return -1;
-
-    for (let i = 0; i < this.chart.data.length; i++) {
-      if (this.chart.data[i].name === traceName) {
-        return i;
-      }
-    }
-
-    return -1;
   }
 
   getSensorColor(sensorType: string, isAnomaly: boolean | undefined): string {
-    if (isAnomaly === true) {  // Check explicitly for true
+    if (isAnomaly === true) {
       return '#F44336'; // Red for all anomalies
     }
 

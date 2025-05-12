@@ -1,5 +1,5 @@
 // src/app/services/signalr.service.ts
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } from '@microsoft/signalr';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { SensorReading } from '../models/sensor-reading.model';
@@ -9,7 +9,7 @@ import { environment } from '../../environments/environment';
 @Injectable({
   providedIn: 'root'
 })
-export class SignalRService {
+export class SignalRService implements OnDestroy {
   private hubConnection: HubConnection;
   private sensorReadingsSubject = new Subject<SensorReading | null>();
   private anomalySubject = new Subject<any | null>();
@@ -18,37 +18,33 @@ export class SignalRService {
   private connectionStateSubject = new BehaviorSubject<string>('Disconnected');
   private connectionIsEstablished = false;
   private subscribedEquipment: Set<number> = new Set();
-  private retryCount = 0;
-  private maxRetries = 10;
-  private startingPromise: Promise<void> | null = null;
   private reconnectTimer: any = null;
   private connectionCheckTimer: any = null;
   private pingTimer: any = null;
-  private autoStart = true; // Flag to auto-start connection
 
   constructor(private snackBar: MatSnackBar) {
-    // Create the connection with improved reliability settings
+    // Create hub connection with a more reliable configuration
     this.hubConnection = new HubConnectionBuilder()
       .withUrl(`${environment.apiUrl}/hubs/monitoring`)
-      .configureLogging(LogLevel.Information)
-      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 15000, 30000])
+      .configureLogging(LogLevel.Warning) // Reduce log noise
+      .withAutomaticReconnect([0, 1000, 3000, 5000]) // Faster reconnection attempts
       .build();
 
-    // Register the callback handlers
+    // Register event handlers
     this.registerOnServerEvents();
-
-    // Set up connection event handlers
     this.setupConnectionEvents();
 
-    // Start the connection immediately but only once if autoStart is true
-    if (this.autoStart) {
-      setTimeout(() => {
-        this.startConnection();
-      }, 500); // Small delay to allow UI to render first
-    }
+    // Start connection with small delay to ensure DOM is loaded
+    setTimeout(() => {
+      this.startConnection().catch(() => {
+        console.log('Retrying initial connection...');
+        // If first attempt fails, try once more after a delay
+        setTimeout(() => this.startConnection(), 2000);
+      });
+    }, 500);
 
-    // Check connection status periodically and reconnect if needed
-    setInterval(() => this.checkConnection(), 15000);
+    // Setup connection health checks
+    this.connectionCheckTimer = setInterval(() => this.checkConnection(), 15000);
   }
 
   private registerOnServerEvents(): void {
@@ -62,7 +58,6 @@ export class SignalRService {
     this.hubConnection.on('AnomalyDetected', (anomaly: any) => {
       console.log('Anomaly detected:', anomaly);
       this.anomalySubject.next(anomaly);
-      // Show notification for anomalies
       this.showAnomalyNotification(anomaly);
     });
 
@@ -70,7 +65,6 @@ export class SignalRService {
     this.hubConnection.on('EquipmentStatusChanged', (statusUpdate: any) => {
       console.log('Equipment status changed:', statusUpdate);
       this.statusChangesSubject.next(statusUpdate);
-      // Show notification for status changes
       this.showStatusChangeNotification(statusUpdate);
     });
 
@@ -100,8 +94,6 @@ export class SignalRService {
     // Handle ping (connection test)
     this.hubConnection.on('Pong', () => {
       console.log('Received pong from server');
-      // Connection is alive, reset retry count
-      this.retryCount = 0;
     });
   }
 
@@ -114,8 +106,8 @@ export class SignalRService {
 
     // Show a more visible notification
     this.snackBar.open(message, 'View', {
-      duration: 8000, // Increased duration
-      panelClass: ['anomaly-snackbar', 'anomaly-pulse'], // Added animation class
+      duration: 8000,
+      panelClass: ['anomaly-snackbar', 'anomaly-pulse'],
       horizontalPosition: 'right',
       verticalPosition: 'top'
     });
@@ -161,12 +153,9 @@ export class SignalRService {
     });
 
     this.hubConnection.onreconnected(connectionId => {
-      console.log('Reconnected to SignalR hub with connection ID:', connectionId);
+      console.log('Reconnected to SignalR hub with ID:', connectionId);
       this.connectionIsEstablished = true;
       this.connectionStateSubject.next('Connected');
-      this.startingPromise = null;
-      this.retryCount = 0;
-      // Resubscribe to groups if necessary
       this.resubscribeToGroups();
     });
 
@@ -174,38 +163,66 @@ export class SignalRService {
       console.error('Connection closed to SignalR hub', error);
       this.connectionIsEstablished = false;
       this.connectionStateSubject.next('Disconnected');
-      this.startingPromise = null;
 
-      // Only attempt to restart if we haven't reached max retries
-      if (this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        const delay = Math.min(1000 * (Math.pow(2, this.retryCount) - 1), 30000);
-        console.log(`Attempting to reconnect (${this.retryCount}/${this.maxRetries}) in ${delay}ms...`);
-
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = setTimeout(() => this.startConnection(), delay);
-      } else {
-        console.error('Max reconnection attempts reached. Please refresh the page.');
-        // Show a user-friendly notification
-        this.snackBar.open('Connection lost. Please refresh the page.', 'Refresh', {
-          duration: 0, // Stays open until user dismisses
-          panelClass: ['error-snackbar']
-        }).onAction().subscribe(() => {
-          window.location.reload();
-        });
-      }
+      // Schedule a reconnection attempt
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = setTimeout(() => {
+        console.log("Attempting reconnection after connection close");
+        this.startConnection();
+      }, 2000);
     });
   }
 
   // Check connection and restart if disconnected
   private checkConnection(): void {
-    if (this.hubConnection.state === HubConnectionState.Disconnected && !this.startingPromise) {
+    const state = this.hubConnection.state;
+
+    // If we're in a connecting state for too long, force reconnect
+    if (state === HubConnectionState.Connecting && !this.connectionIsEstablished) {
+      console.log('Connection stuck in Connecting state, forcing reconnect...');
+      this.forceReconnect();
+      return;
+    }
+
+    // If we're disconnected, try to reconnect
+    if (state === HubConnectionState.Disconnected) {
       console.log('Connection check found disconnected state, attempting to reconnect...');
       this.startConnection();
-    } else if (this.hubConnection.state === HubConnectionState.Connected) {
-      // Send a ping to verify the connection is really alive
+    } else if (state === HubConnectionState.Connected) {
+      // If we're connected, ping to verify connection health
       this.sendPing();
     }
+  }
+
+  private forceReconnect(): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        // Try to stop gracefully first
+        this.hubConnection.stop().then(() => {
+          console.log('Connection stopped for force reconnect');
+          // Reset connection flags
+          this.connectionIsEstablished = false;
+          this.connectionStateSubject.next('Disconnected');
+
+          // Delay before restarting
+          setTimeout(() => {
+            this.startConnection().then(resolve).catch(() => resolve());
+          }, 1000);
+        }).catch(err => {
+          console.error('Error stopping connection during force reconnect', err);
+          // Still try to reconnect
+          setTimeout(() => {
+            this.startConnection().then(resolve).catch(() => resolve());
+          }, 1000);
+        });
+      } catch (err) {
+        console.error('Exception in force reconnect', err);
+        // Still try to reconnect
+        setTimeout(() => {
+          this.startConnection().then(resolve).catch(() => resolve());
+        }, 1000);
+      }
+    });
   }
 
   private sendPing(): void {
@@ -213,32 +230,11 @@ export class SignalRService {
     try {
       this.hubConnection.invoke('Ping').catch(err => {
         console.warn('Ping failed, connection might be dead', err);
-        // Force reconnect
-        this.hubConnection.stop().then(() => {
-          this.startConnection();
-        }).catch(stopErr => {
-          console.error('Error stopping connection', stopErr);
-          this.connectionStateSubject.next('Disconnected');
-        });
+        this.forceReconnect();
       });
     } catch (err) {
       console.error('Error sending ping', err);
     }
-  }
-
-  private scheduleConnectionCheck(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-    }
-
-    // Test connection with a ping every 20 seconds
-    this.pingTimer = setInterval(() => {
-      if (this.hubConnection.state === HubConnectionState.Connected) {
-        this.sendPing();
-      } else {
-        this.checkConnection();
-      }
-    }, 20000);
   }
 
   private resubscribeToGroups(): void {
@@ -255,91 +251,51 @@ export class SignalRService {
   }
 
   public startConnection(): Promise<void> {
-    // Check if connection is already in progress
-    if (this.startingPromise) {
-      console.log('Connection start already in progress, returning existing promise');
-      return this.startingPromise;
-    }
-
-    // Check if already connected
+    // If already connected, just return
     if (this.hubConnection.state === HubConnectionState.Connected) {
-      console.log('Already connected to SignalR hub');
       this.connectionIsEstablished = true;
       this.connectionStateSubject.next('Connected');
       return Promise.resolve();
     }
 
-    // Check if connection is not in a state where it can be started
+    // If in a state other than Disconnected, force a restart
     if (this.hubConnection.state !== HubConnectionState.Disconnected) {
-      console.log(`Connection in ${this.hubConnection.state} state, cannot start. Waiting...`);
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(this.startConnection());
-        }, 1000);
-      });
+      return this.forceReconnect();
     }
 
-    // Start a new connection
     console.log('Starting new SignalR connection...');
     this.connectionStateSubject.next('Connecting');
 
-    // Add a timeout to prevent hanging connections
+    // Set a timeout for the connection attempt
     const connectionTimeout = setTimeout(() => {
-      if (!this.connectionIsEstablished) {
+      if (this.hubConnection.state === HubConnectionState.Connecting) {
         console.error('Connection attempt timed out');
-        this.connectionStateSubject.next('Disconnected');
-        this.startingPromise = null;
-
-        // Try to reconnect automatically
-        if (this.retryCount < this.maxRetries) {
-          this.retryCount++;
-          this.startConnection();
-        }
+        this.forceReconnect();
       }
-    }, 10000); // 10 second timeout
+    }, 7000);
 
-    this.startingPromise = this.hubConnection.start()
+    return this.hubConnection.start()
       .then(() => {
         clearTimeout(connectionTimeout);
         console.log('SignalR connection established successfully');
         this.connectionIsEstablished = true;
         this.connectionStateSubject.next('Connected');
-        this.retryCount = 0;
-        this.startingPromise = null;
-
-        // Start ping checks to keep connection alive
-        this.scheduleConnectionCheck();
-
-        // Resubscribe to groups if necessary
         this.resubscribeToGroups();
+        return Promise.resolve();
       })
       .catch(err => {
         clearTimeout(connectionTimeout);
         console.error('Error establishing SignalR connection:', err);
         this.connectionIsEstablished = false;
         this.connectionStateSubject.next('Failed');
-        this.startingPromise = null;
 
-        // Only attempt to restart if we haven't reached max retries
-        if (this.retryCount < this.maxRetries) {
-          this.retryCount++;
-          const delay = Math.min(1000 * (Math.pow(2, this.retryCount) - 1), 30000);
-          console.log(`Attempting to reconnect (${this.retryCount}/${this.maxRetries}) in ${delay}ms...`);
-
-          // Return a new promise that will resolve when the retry succeeds
-          return new Promise((resolve, reject) => {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = setTimeout(() => {
-              this.startConnection().then(resolve).catch(reject);
-            }, delay);
-          });
-        } else {
-          console.error('Max reconnection attempts reached. Please refresh the page.');
-          return Promise.reject(err);
-        }
+        // Schedule a retry
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            this.startConnection().then(resolve).catch(reject);
+          }, 3000);
+        });
       });
-
-    return this.startingPromise;
   }
 
   // Implement equipment subscription methods
@@ -364,7 +320,6 @@ export class SignalRService {
       })
       .catch(err => {
         console.error(`Error subscribing to equipment ${equipmentId}:`, err);
-        // Keep in the set for retry
         throw err;
       });
   }
@@ -417,16 +372,29 @@ export class SignalRService {
 
   // Add manual reconnect function to allow UI buttons to trigger reconnection
   public reconnect(): Promise<void> {
-    // Stop and restart
-    return this.hubConnection.stop()
-      .then(() => {
-        this.retryCount = 0; // Reset retry count for manual reconnect
-        return this.startConnection();
-      })
-      .catch(err => {
-        console.error('Error during manual reconnection', err);
-        this.startConnection();
-        throw err;
+    console.log('Manual reconnection requested by user');
+    return this.forceReconnect();
+  }
+
+  ngOnDestroy(): void {
+    // Clean up timers
+    if (this.connectionCheckTimer) {
+      clearInterval(this.connectionCheckTimer);
+    }
+
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+
+    // Close the connection
+    if (this.hubConnection) {
+      this.hubConnection.stop().catch(err => {
+        console.error('Error stopping connection during cleanup', err);
       });
+    }
   }
 }

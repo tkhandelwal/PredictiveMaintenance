@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using PredictiveMaintenance.API.Models;
+﻿using PredictiveMaintenance.API.Models;
 
 namespace PredictiveMaintenance.API.Services
 {

@@ -1,8 +1,6 @@
 ﻿using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
-using InfluxDB.Client.Core.Flux.Domain;
 using InfluxDB.Client.Writes;
-using Microsoft.Extensions.Configuration;
 using PredictiveMaintenance.API.Models;
 using System.Text;
 

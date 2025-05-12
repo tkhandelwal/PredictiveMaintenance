@@ -1,11 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
 using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Services.DataGeneration
 {
@@ -189,13 +184,13 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
                     if (reading != null)
                     {
                         readings.Add(reading);
-                        
+
                         // Send to clients through SignalR
-                        try 
+                        try
                         {
                             await _hubContext.Clients.Group($"Equipment_{equipmentId}")
                                 .SendAsync("ReceiveSensorReading", reading);
-                            
+
                             // Also notify about anomalies
                             if (reading.IsAnomaly)
                             {
@@ -253,7 +248,7 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             _logger.LogInformation("Reset all equipment simulations to normal mode");
         }
 
-        private double GenerateValue(int equipmentId, string sensorType, SensorConfig sensorConfig, 
+        private double GenerateValue(int equipmentId, string sensorType, SensorConfig sensorConfig,
                                   EquipmentProfile profile, TrendData trendData)
         {
             // Get simulation state for this equipment
@@ -284,108 +279,108 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
 
             // Reduced random noise for clearer patterns
             double noise = (_random.NextDouble() * 2 - 1) * sensorConfig.Variance * 0.3;
-            
+
             // Enhanced simulation effects
             double simulationEffect = 0;
-            
+
             switch (simulationState.Mode)
             {
                 case SimulationMode.Normal:
                     // Normal operation - minimal effect
                     break;
-                    
+
                 case SimulationMode.Failure:
                     // Calculate dramatic failure effects
                     double secondsSinceStart = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
                     double failureFactor = Math.Min(20, secondsSinceStart * 0.5);
-                    
+
                     switch (sensorType.ToLower())
                     {
                         case "temperature":
                             // Temperature skyrockets during failure
                             simulationEffect = sensorConfig.Variance * failureFactor * 3.0;
                             break;
-                            
+
                         case "vibration":
                             // Vibration increases dramatically 
                             simulationEffect = sensorConfig.Variance * failureFactor * 4.0;
                             break;
-                            
+
                         case "pressure":
                             // Pressure fluctuates wildly
-                            simulationEffect = sensorConfig.Variance * failureFactor * 
+                            simulationEffect = sensorConfig.Variance * failureFactor *
                                             Math.Sin(secondsSinceStart * 0.5) * 3.0;
                             break;
-                            
+
                         case "flow":
                             // Flow drops significantly
                             simulationEffect = -sensorConfig.Variance * failureFactor * 2.0;
                             break;
-                            
+
                         case "rpm":
                             // RPM becomes erratic
-                            simulationEffect = sensorConfig.Variance * failureFactor * 
+                            simulationEffect = sensorConfig.Variance * failureFactor *
                                             (Math.Sin(secondsSinceStart * 0.3) + 1) * 2.0;
                             break;
-                            
+
                         default:
                             // Generic failure pattern
                             simulationEffect = sensorConfig.Variance * failureFactor * 2.0;
                             break;
                     }
                     break;
-                    
+
                 case SimulationMode.Deterioration:
                     // Gradual deterioration effect
                     double deteriorationTime = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
                     double deteriorationFactor = Math.Min(15, deteriorationTime * 0.1);
-                    
+
                     switch (sensorType.ToLower())
                     {
                         case "temperature":
                             // Temperature gradually increases
                             simulationEffect = baseValue * 0.006 * deteriorationFactor;
                             break;
-                            
+
                         case "vibration":
                             // Vibration steadily worsens
                             simulationEffect = baseValue * 0.01 * deteriorationFactor;
                             break;
-                            
+
                         case "flow":
                             // Flow gradually decreases
                             simulationEffect = -baseValue * 0.005 * deteriorationFactor;
                             break;
-                            
+
                         default:
                             // Generic deterioration pattern
                             simulationEffect = baseValue * 0.004 * deteriorationFactor;
                             break;
                     }
                     break;
-                    
+
                 case SimulationMode.Maintenance:
                     // Maintenance improvement effect
                     double maintenanceTime = (DateTime.UtcNow - simulationState.StartTime).TotalSeconds;
                     double improvementFactor = Math.Min(1.0, maintenanceTime / 20.0);
-                    
+
                     switch (sensorType.ToLower())
                     {
                         case "temperature":
                             // Temperature normalizes
                             simulationEffect = -sensorConfig.Variance * 3.0 * improvementFactor;
                             break;
-                            
+
                         case "vibration":
                             // Vibration drops significantly
                             simulationEffect = -sensorConfig.Variance * 4.0 * improvementFactor;
                             break;
-                            
+
                         case "flow":
                             // Flow improves 
                             simulationEffect = sensorConfig.Variance * 2.0 * improvementFactor;
                             break;
-                            
+
                         default:
                             // Generic improvement
                             simulationEffect = -sensorConfig.Variance * 2.0 * improvementFactor;
@@ -405,10 +400,10 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
 
             // Calculate final value
             double value = baseValue + seasonalEffect + noise + simulationEffect + trendEffect;
-            
+
             // Ensure value is reasonable (non-negative)
             value = Math.Max(value, 0);
-            
+
             return Math.Round(value, 2);
         }
 

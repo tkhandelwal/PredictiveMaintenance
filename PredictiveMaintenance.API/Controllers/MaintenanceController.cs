@@ -1,13 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using PredictiveMaintenance.API.Data;
 using PredictiveMaintenance.API.Models;
 using PredictiveMaintenance.API.Services.MachineLearning;
 using PredictiveMaintenance.API.Services.Monitoring;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Controllers
 {

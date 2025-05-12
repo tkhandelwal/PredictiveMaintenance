@@ -1,12 +1,6 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using PredictiveMaintenance.API.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Services.MachineLearning
 {

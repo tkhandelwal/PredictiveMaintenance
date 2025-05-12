@@ -1,8 +1,4 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
-using PredictiveMaintenance.API.Models;
-using System;
-using System.Threading.Tasks;
 
 namespace PredictiveMaintenance.API.Hubs
 {
