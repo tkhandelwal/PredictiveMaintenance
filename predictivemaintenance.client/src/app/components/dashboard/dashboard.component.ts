@@ -12,6 +12,7 @@ import { MaintenanceService } from '../../services/maintenance.service';
 import { LoadingService } from '../../services/loading.service';
 import { StatusIndicatorComponent } from '../shared/status-indicator/status-indicator.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
+import { PredictiveInsightsComponent } from './predictive-insights/predictive-insights.component';
 
 declare const Plotly: any;
 
@@ -26,7 +27,8 @@ declare const Plotly: any;
     MatIconModule,
     MatButtonModule,
     StatusIndicatorComponent,
-    LoadingSpinnerComponent
+    LoadingSpinnerComponent,
+    PredictiveInsightsComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']

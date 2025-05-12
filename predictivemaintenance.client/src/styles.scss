@@ -213,6 +213,37 @@ html, body {
   }
 }
 
+// Add to styles.scss
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+  }
+}
+
+.anomaly-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+.anomaly-snackbar {
+  --mdc-snackbar-container-color: rgba(244, 67, 54, 0.9);
+  --mat-mdc-snack-bar-button-color: white;
+  --mdc-snackbar-supporting-text-color: white;
+}
+
+.status-snackbar {
+  --mdc-snackbar-container-color: rgba(33, 150, 243, 0.9);
+  --mat-mdc-snack-bar-button-color: white;
+  --mdc-snackbar-supporting-text-color: white;
+}
+
 // Responsive adjustments
 @media (max-width: 768px) {
   .container {
