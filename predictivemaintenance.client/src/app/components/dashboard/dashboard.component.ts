@@ -6,7 +6,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 
-import { Equipment } from '../../models/equipment.model';
+import { Equipment, MaintenanceStatus } from '../../models/equipment.model';
 import { EquipmentService } from '../../services/equipment.service';
 import { MaintenanceService } from '../../services/maintenance.service';
 import { LoadingService } from '../../services/loading.service';
@@ -115,6 +115,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case 'fan':
       case 'industrial fan': return 'air';
       default: return 'settings';
+    }
+  }
+
+  getStatusClass(status: MaintenanceStatus): string {
+    switch (status) {
+      case MaintenanceStatus.Operational:
+        return 'operational';
+      case MaintenanceStatus.Warning:
+        return 'warning';
+      case MaintenanceStatus.Critical:
+        return 'critical';
+      case MaintenanceStatus.UnderMaintenance:
+        return 'under-maintenance';
+      default:
+        return '';
     }
   }
 

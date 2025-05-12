@@ -8,8 +8,8 @@ export interface Equipment {
 }
 
 export enum MaintenanceStatus {
-  Operational = 'Operational',
-  Warning = 'Warning',
-  Critical = 'Critical',
-  UnderMaintenance = 'UnderMaintenance'
+  Operational = 0,
+  Warning = 1,
+  Critical = 2,
+  UnderMaintenance = 3
 }

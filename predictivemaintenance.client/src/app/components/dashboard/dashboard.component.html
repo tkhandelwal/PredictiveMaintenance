@@ -119,7 +119,7 @@
 
   <div class="equipment-grid">
     <mat-card class="equipment-card" *ngFor="let equipment of equipmentList"
-              [ngClass]="'status-' + equipment.status.toLowerCase()"
+              [ngClass]="'status-' + getStatusClass(equipment.status)"
               (click)="navigateToEquipment(equipment.id)">
       <div class="equipment-icon">
         <mat-icon>{{ getEquipmentIcon(equipment.type) }}</mat-icon>
