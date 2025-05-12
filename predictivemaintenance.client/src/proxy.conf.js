@@ -9,8 +9,9 @@ const PROXY_CONFIG = [
       "/api",
       "/hubs",
     ],
-    target,
-    secure: false
+    target: "http://localhost:5236", // Use HTTP port from your running server
+    secure: false,
+    logLevel: "debug" // Add this for troubleshooting
   }
 ]
 

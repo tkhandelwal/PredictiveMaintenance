@@ -1,5 +1,6 @@
+// src/environments/environment.ts
 export const environment = {
   production: false,
-  apiUrl: 'https://localhost:5236', // Update this URL to match your API
+  apiUrl: '', // Empty base URL to use relative paths 
   version: '1.0.0'
 };
