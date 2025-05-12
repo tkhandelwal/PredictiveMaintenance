@@ -1,5 +1,4 @@
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { EquipmentListComponent } from './components/equipment/equipment-list/equipment-list.component';
 import { EquipmentDetailComponent } from './components/equipment/equipment-detail/equipment-detail.component';
@@ -15,9 +14,3 @@ export const routes: Routes = [
   { path: 'admin/simulation', component: SimulationControlComponent },
   { path: '**', redirectTo: '/dashboard' }
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
-})
-export class AppRoutingModule { }

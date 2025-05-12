@@ -4,31 +4,19 @@ import { SensorReading } from '../../../models/sensor-reading.model';
 import { SignalRService } from '../../../services/signalr.service';
 import { Subscription } from 'rxjs';
 
-// Fix plotly import to avoid TypeScript errors
+// Declare Plotly as any to avoid TypeScript errors
 declare const Plotly: any;
 
 @Component({
   selector: 'app-sensor-chart',
   standalone: true,
-  imports: [
-    CommonModule
-  ],
+  imports: [CommonModule],
   template: `
     <div class="chart-container">
       <div #chart class="chart"></div>
     </div>
   `,
-  styles: [`
-    .chart-container {
-      width: 100%;
-      height: 400px;
-    }
-    
-    .chart {
-      width: 100%;
-      height: 100%;
-    }
-  `]
+  styleUrls: ['./sensor-chart.component.scss']
 })
 export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   @ViewChild('chart', { static: true }) chartElement!: ElementRef;
@@ -36,7 +24,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   @Input() readings: SensorReading[] = [];
 
   private chart: any;
-  private subscription?: Subscription;
+  private subscriptions: Subscription[] = [];
 
   constructor(private signalRService: SignalRService) { }
 
@@ -46,11 +34,13 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       this.initChart();
 
       // Subscribe to real-time sensor readings
-      this.subscription = this.signalRService.getSensorReadings().subscribe(reading => {
-        if (reading && reading.equipmentId === this.equipmentId) {
-          this.addReading(reading);
-        }
-      });
+      this.subscriptions.push(
+        this.signalRService.getSensorReadings().subscribe(reading => {
+          if (reading && reading.equipmentId === this.equipmentId) {
+            this.addReading(reading);
+          }
+        })
+      );
 
       // Subscribe to the equipment
       this.signalRService.subscribeToEquipment(this.equipmentId);
@@ -64,10 +54,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.subscription) {
-      this.subscription.unsubscribe();
-    }
-
+    this.subscriptions.forEach(sub => sub.unsubscribe());
     this.signalRService.unsubscribeFromEquipment(this.equipmentId);
   }
 
@@ -90,6 +77,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
   private initChart(): void {
     const element = this.chartElement.nativeElement;
+    if (!element || this.readings.length === 0) return;
 
     // Group readings by sensor type
     const sensorTypes = [...new Set(this.readings.map(r => r.sensorType))];
@@ -110,37 +98,15 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         },
         marker: {
           size: 8,
-          color: filteredReadings.map(r => r.isAnomaly ? '#F44336' : sensorType === 'temperature' ? '#FF5722' : '#2196F3'),
+          color: filteredReadings.map(r => r.isAnomaly ? '#F44336' :
+            (sensorType === 'temperature' ? '#FF5722' : '#2196F3')),
           line: {
             width: 2,
             color: 'white'
           }
-        },
-        hoverinfo: 'all',
-        hoverlabel: {
-          bgcolor: '#333',
-          bordercolor: '#333',
-          font: { color: 'white' }
         }
       };
     });
-
-    // Add anomaly annotations for better visibility
-    const annotations = this.readings
-      .filter(r => r.isAnomaly)
-      .map(reading => ({
-        x: new Date(reading.timestamp),
-        y: reading.value,
-        text: 'Anomaly',
-        showarrow: true,
-        arrowhead: 2,
-        arrowsize: 1,
-        arrowwidth: 2,
-        arrowcolor: '#F44336',
-        font: { color: 'white' },
-        bgcolor: '#F44336',
-        bordercolor: '#F44336'
-      }));
 
     const layout = {
       title: {
@@ -152,49 +118,19 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       xaxis: {
         title: 'Time',
         type: 'date',
-        gridcolor: '#eee',
-        linecolor: '#999',
-        tickformat: '%H:%M:%S<br>%b %d'
+        gridcolor: '#eee'
       },
       yaxis: {
         title: 'Value',
-        gridcolor: '#eee',
-        linecolor: '#999'
+        gridcolor: '#eee'
       },
       margin: { l: 60, r: 40, b: 50, t: 80, pad: 0 },
-      legend: {
-        orientation: 'h',
-        y: -0.2,
-        bgcolor: 'rgba(255,255,255,0.8)',
-        bordercolor: '#ddd',
-        borderwidth: 1
-      },
-      showlegend: true,
-      hovermode: 'closest',
-      annotations: annotations,
-      shapes: [
-        // Add threshold line
-        {
-          type: 'line',
-          xref: 'paper',
-          x0: 0,
-          x1: 1,
-          y0: 100, // Threshold value
-          y1: 100,
-          line: {
-            color: 'rgba(255,0,0,0.5)',
-            width: 2,
-            dash: 'dash'
-          }
-        }
-      ]
+      showlegend: true
     };
 
     const config = {
       responsive: true,
-      displayModeBar: true,
-      displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d']
+      displayModeBar: false
     };
 
     Plotly.newPlot(element, traces, layout, config);

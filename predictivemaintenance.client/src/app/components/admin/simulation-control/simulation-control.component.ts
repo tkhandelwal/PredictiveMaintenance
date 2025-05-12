@@ -2,9 +2,6 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { forkJoin, Subscription } from 'rxjs';
-
-// Material imports
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -12,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
+import { forkJoin, Subscription } from 'rxjs';
 
 import { Equipment } from '../../../models/equipment.model';
 import { EquipmentService } from '../../../services/equipment.service';
@@ -30,6 +28,19 @@ interface ActiveSimulation {
 
 @Component({
   selector: 'app-simulation-control',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatListModule,
+    LoadingSpinnerComponent
+  ],
   templateUrl: './simulation-control.component.html',
   styleUrls: ['./simulation-control.component.scss']
 })
@@ -118,18 +129,20 @@ export class SimulationControlComponent implements OnInit, OnDestroy {
   }
 
   loadEquipment(): void {
-    this.equipmentService.getAllEquipment().subscribe({
-      next: equipment => {
-        this.equipmentList = equipment;
-      },
-      error: error => {
-        console.error('Error loading equipment:', error);
-        this.snackBar.open('Error loading equipment', 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+    this.subscriptions.push(
+      this.equipmentService.getAllEquipment().subscribe({
+        next: equipment => {
+          this.equipmentList = equipment;
+        },
+        error: error => {
+          console.error('Error loading equipment:', error);
+          this.snackBar.open('Error loading equipment', 'Close', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      })
+    );
   }
 
   startSimulation(): void {
@@ -137,28 +150,30 @@ export class SimulationControlComponent implements OnInit, OnDestroy {
 
     const request = this.simulationForm.value;
 
-    this.simulationService.startSimulation(request).subscribe({
-      next: (response: any) => {
-        this.snackBar.open(`Simulation started successfully`, 'Close', {
-          duration: 3000,
-          panelClass: ['success-snackbar']
-        });
+    this.subscriptions.push(
+      this.simulationService.startSimulation(request).subscribe({
+        next: () => {
+          this.snackBar.open(`Simulation started successfully`, 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
 
-        this.activeSimulations.push({
-          id: this.generateSimId(),
-          equipmentId: request.equipmentId,
-          scenarioType: request.scenarioType,
-          startTime: new Date(),
-          duration: request.duration
-        });
-      },
-      error: (error: any) => {
-        this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+          this.activeSimulations.push({
+            id: this.generateSimId(),
+            equipmentId: request.equipmentId,
+            scenarioType: request.scenarioType,
+            startTime: new Date(),
+            duration: request.duration
+          });
+        },
+        error: (error: any) => {
+          this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      })
+    );
   }
 
   runPreset(preset: any): void {
@@ -171,31 +186,33 @@ export class SimulationControlComponent implements OnInit, OnDestroy {
       return this.simulationService.startSimulation(request);
     });
 
-    forkJoin(requests).subscribe({
-      next: () => {
-        this.snackBar.open(`Preset "${preset.name}" started on all equipment`, 'Close', {
-          duration: 3000,
-          panelClass: ['success-snackbar']
-        });
-
-        // Add simulations to active list
-        this.equipmentList.forEach(equipment => {
-          this.activeSimulations.push({
-            id: this.generateSimId(),
-            equipmentId: equipment.id,
-            scenarioType: preset.config.scenarioType,
-            startTime: new Date(),
-            duration: preset.config.duration
+    this.subscriptions.push(
+      forkJoin(requests).subscribe({
+        next: () => {
+          this.snackBar.open(`Preset "${preset.name}" started on all equipment`, 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
           });
-        });
-      },
-      error: (error) => {
-        this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+
+          // Add simulations to active list
+          this.equipmentList.forEach(equipment => {
+            this.activeSimulations.push({
+              id: this.generateSimId(),
+              equipmentId: equipment.id,
+              scenarioType: preset.config.scenarioType,
+              startTime: new Date(),
+              duration: preset.config.duration
+            });
+          });
+        },
+        error: (error) => {
+          this.snackBar.open(`Error starting simulation: ${error.message}`, 'Close', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      })
+    );
   }
 
   getEquipmentName(equipmentId: number): string {
@@ -222,35 +239,39 @@ export class SimulationControlComponent implements OnInit, OnDestroy {
   }
 
   stopSimulation(simulation: ActiveSimulation): void {
-    this.simulationService.stopSimulation(simulation.equipmentId).subscribe({
-      next: () => {
-        this.snackBar.open(`Simulation stopped`, 'Close', { duration: 3000 });
-        this.activeSimulations = this.activeSimulations.filter(s => s.id !== simulation.id);
-      },
-      error: (error: any) => {
-        this.snackBar.open(`Error stopping simulation: ${error.message}`, 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+    this.subscriptions.push(
+      this.simulationService.stopSimulation(simulation.equipmentId).subscribe({
+        next: () => {
+          this.snackBar.open(`Simulation stopped`, 'Close', { duration: 3000 });
+          this.activeSimulations = this.activeSimulations.filter(s => s.id !== simulation.id);
+        },
+        error: (error: any) => {
+          this.snackBar.open(`Error stopping simulation: ${error.message}`, 'Close', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      })
+    );
   }
 
   resetAll(): void {
-    this.simulationService.resetAllSimulations().subscribe({
-      next: () => {
-        this.snackBar.open(`All simulations reset to normal operation`, 'Close', {
-          duration: 3000,
-          panelClass: ['success-snackbar']
-        });
-        this.activeSimulations = [];
-      },
-      error: (error: any) => {
-        this.snackBar.open(`Error resetting simulations: ${error.message}`, 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+    this.subscriptions.push(
+      this.simulationService.resetAllSimulations().subscribe({
+        next: () => {
+          this.snackBar.open(`All simulations reset to normal operation`, 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+          this.activeSimulations = [];
+        },
+        error: (error: any) => {
+          this.snackBar.open(`Error resetting simulations: ${error.message}`, 'Close', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      })
+    );
   }
 }

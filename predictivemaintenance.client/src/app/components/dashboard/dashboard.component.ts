@@ -1,17 +1,32 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 
-import { Equipment, MaintenanceStatus } from '../../models/equipment.model';
+import { Equipment } from '../../models/equipment.model';
 import { EquipmentService } from '../../services/equipment.service';
 import { MaintenanceService } from '../../services/maintenance.service';
 import { LoadingService } from '../../services/loading.service';
+import { StatusIndicatorComponent } from '../shared/status-indicator/status-indicator.component';
+import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
 
-// For plotly charts
 declare const Plotly: any;
 
 @Component({
   selector: 'app-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatCardModule,
+    MatIconModule,
+    MatButtonModule,
+    StatusIndicatorComponent,
+    LoadingSpinnerComponent
+  ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -49,14 +64,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadEquipment(): void {
-    this.equipmentService.getAllEquipment().subscribe({
-      next: equipment => {
-        this.equipmentList = equipment;
-      },
-      error: error => {
-        console.error('Error loading equipment:', error);
-      }
-    });
+    this.subscriptions.push(
+      this.equipmentService.getAllEquipment().subscribe({
+        next: equipment => {
+          this.equipmentList = equipment;
+        },
+        error: error => {
+          console.error('Error loading equipment:', error);
+        }
+      })
+    );
   }
 
   private loadMockData(): void {
@@ -79,16 +96,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.equipmentList.filter(e => e.status === status).length;
   }
 
-  getStatusClass(status: string): string {
-    return status.toLowerCase().replace(/\s/g, '-');
-  }
-
   navigateToEquipment(id: number): void {
     this.router.navigate(['/equipment', id]);
   }
 
   filterByStatus(status: string): void {
-    // Navigate to equipment list with filter
     this.router.navigate(['/equipment'], { queryParams: { status } });
   }
 
@@ -120,37 +132,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const statuses = ['Operational', 'Warning', 'Critical', 'UnderMaintenance'];
     const counts = statuses.map(status => this.getStatusCount(status));
 
-    // Create a pie chart with Plotly
-    const data = [{
-      values: counts,
-      labels: statuses,
-      type: 'pie',
-      hole: 0.4,
-      marker: {
-        colors: ['#4CAF50', '#FF9800', '#F44336', '#2196F3']
-      },
-      textinfo: 'label+percent',
-      insidetextorientation: 'radial'
-    }];
+    // Check if Plotly is available
+    if (typeof Plotly !== 'undefined') {
+      // Create a pie chart with Plotly - using type assertion to fix TypeScript error
+      const data: any[] = [{
+        values: counts,
+        labels: statuses,
+        type: 'pie',
+        hole: 0.4,
+        marker: {
+          colors: ['#4CAF50', '#FF9800', '#F44336', '#2196F3']
+        },
+        textinfo: 'label+percent',
+        insidetextorientation: 'radial'
+      }];
 
-    const layout = {
-      showlegend: true,
-      legend: { orientation: 'h', y: -0.2 },
-      margin: { l: 0, r: 0, t: 40, b: 0 },
-      height: 350,
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)'
-    };
+      // Use type assertion for layout as well
+      const layout: any = {
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.2 },
+        margin: { l: 0, r: 0, t: 40, b: 0 },
+        height: 350,
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)'
+      };
 
-    const config = {
-      responsive: true,
-      displayModeBar: false
-    };
+      const config: any = {
+        responsive: true,
+        displayModeBar: false
+      };
 
-    // Check if chart element exists before creating chart
-    const chartElement = document.getElementById('healthChart');
-    if (chartElement) {
-      Plotly.newPlot('healthChart', data, layout, config);
+      // Check if chart element exists before creating chart
+      const chartElement = document.getElementById('healthChart');
+      if (chartElement) {
+        Plotly.newPlot('healthChart', data, layout, config);
+      }
     }
   }
 }

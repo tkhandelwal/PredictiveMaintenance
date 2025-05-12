@@ -1,10 +1,22 @@
 import { Component, ViewChild } from '@angular/core';
-import { MatDrawer } from '@angular/material/sidenav';
-import { Router, NavigationEnd } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { RouterOutlet, Router, NavigationEnd, RouterModule } from '@angular/router';
+import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { filter } from 'rxjs/operators';
+import { NavbarComponent } from './components/shared/navbar/navbar.component';
+import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    RouterModule,
+    MatSidenavModule,
+    NavbarComponent,
+    SidebarComponent
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
@@ -33,18 +45,12 @@ export class AppComponent {
       });
   }
 
-  /**
-   * Toggles the sidebar open/closed
-   */
   toggleSidebar(): void {
     if (this.drawer) {
       this.drawer.toggle();
     }
   }
 
-  /**
-   * Checks if the screen is mobile size
-   */
   private checkScreenSize(): void {
     this.isMobile = window.innerWidth < 768;
 

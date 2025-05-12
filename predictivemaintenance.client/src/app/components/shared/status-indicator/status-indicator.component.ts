@@ -1,5 +1,4 @@
-// src/app/components/shared/status-indicator/status-indicator.component.ts
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -15,37 +14,9 @@ import { MaintenanceStatus } from '../../../models/equipment.model';
       <span *ngIf="showLabel">{{ status }}</span>
     </div>
   `,
-  styles: [`
-    .status-indicator {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 8px;
-      border-radius: 16px;
-      color: white;
-    }
-    
-    .operational {
-      background-color: #4CAF50;
-    }
-    
-    .warning {
-      background-color: #FF9800;
-    }
-    
-    .critical {
-      background-color: #F44336;
-    }
-    
-    .under-maintenance {
-      background-color: #2196F3;
-    }
-    
-    mat-icon {
-      margin-right: 4px;
-    }
-  `]
+  styleUrls: ['./status-indicator.component.scss']
 })
-export class StatusIndicatorComponent {
+export class StatusIndicatorComponent implements OnChanges {
   @Input() status!: MaintenanceStatus;
   @Input() showLabel: boolean = true;
 

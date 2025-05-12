@@ -1,0 +1,36 @@
+.container {
+  padding: 20px;
+}
+
+.table-container {
+  margin-top: 20px;
+  overflow: auto;
+}
+
+.equipment-table {
+  width: 100%;
+}
+
+tr.mat-row {
+  cursor: pointer;
+}
+
+tr.mat-row:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+tr.operational {
+  border-left: 4px solid #4CAF50;
+}
+
+tr.warning {
+  border-left: 4px solid #FF9800;
+}
+
+tr.critical {
+  border-left: 4px solid #F44336;
+}
+
+tr.under-maintenance {
+  border-left: 4px solid #2196F3;
+}

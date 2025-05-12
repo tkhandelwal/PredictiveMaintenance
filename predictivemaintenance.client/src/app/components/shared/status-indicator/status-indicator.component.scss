@@ -1,0 +1,27 @@
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 16px;
+  color: white;
+}
+
+.operational {
+  background-color: #4CAF50;
+}
+
+.warning {
+  background-color: #FF9800;
+}
+
+.critical {
+  background-color: #F44336;
+}
+
+.under-maintenance {
+  background-color: #2196F3;
+}
+
+mat-icon {
+  margin-right: 4px;
+}
