@@ -1,10 +1,12 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router, NavigationEnd, RouterModule } from '@angular/router';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { filter } from 'rxjs/operators';
 import { NavbarComponent } from './components/shared/navbar/navbar.component';
 import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
+import { ThemeService } from './services/theme.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -20,15 +22,29 @@ import { SidebarComponent } from './components/shared/sidebar/sidebar.component'
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'Predictive Maintenance System';
   isMobile = false;
+  isDarkTheme = false;
+  private subscriptions: Subscription[] = [];
 
   @ViewChild('drawer') drawer!: MatDrawer;
 
-  constructor(private router: Router) {
+  constructor(
+    private router: Router,
+    private themeService: ThemeService
+  ) { }
+
+  ngOnInit(): void {
     // Check screen size on init
     this.checkScreenSize();
+
+    // Subscribe to theme changes
+    this.subscriptions.push(
+      this.themeService.isDarkTheme$().subscribe(isDark => {
+        this.isDarkTheme = isDark;
+      })
+    );
 
     // Listen for window resize events
     window.addEventListener('resize', () => {
@@ -43,6 +59,10 @@ export class AppComponent {
           this.drawer.close();
         }
       });
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 
   toggleSidebar(): void {

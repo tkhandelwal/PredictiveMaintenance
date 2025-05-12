@@ -1,11 +1,12 @@
-// Import prebuilt theme
+/* src/styles.scss */
+/* Import prebuilt theme */
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 
-// Import Google fonts
+/* Import Google fonts */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 
-// Basic styles
+/* Basic styles */
 html, body {
   height: 100%;
   margin: 0;
@@ -13,14 +14,14 @@ html, body {
   background-color: #f5f7fa;
 }
 
-// Container styles
+/* Container styles */
 .container {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
-// Enhanced card styling
+/* Enhanced card styling */
 .mat-mdc-card {
   border-radius: 10px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
@@ -50,7 +51,7 @@ html, body {
   }
 }
 
-// Table styling
+/* Table styling */
 .mat-mdc-table {
   width: 100%;
   background: transparent;
@@ -82,7 +83,7 @@ html, body {
   }
 }
 
-// Status indicator colors
+/* Status indicator colors */
 .status-operational {
   color: #4CAF50;
 }
@@ -99,20 +100,20 @@ html, body {
   color: #2196F3;
 }
 
-// Button enhancements
+/* Button enhancements */
 .mat-mdc-raised-button {
   font-weight: 500;
   letter-spacing: 0.02em;
   border-radius: 6px;
 }
 
-// Form field enhancements
+/* Form field enhancements */
 .mat-mdc-form-field {
   width: 100%;
   margin-bottom: 20px;
 }
 
-// Custom scrollbar
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -132,7 +133,7 @@ html, body {
   }
 }
 
-// Dashboard card styles
+/* Dashboard card styles */
 .status-card {
   text-align: center;
   border-radius: 16px !important;
@@ -177,13 +178,15 @@ html, body {
   }
 }
 
-// Charts container
+/* Charts container */
 .chart-container {
-  height: 400px;
-  padding: 16px;
+  min-height: 500px;
+  height: 100%;
+  width: 100%;
+  position: relative;
 }
 
-// Loading spinner overlay
+/* Loading spinner overlay */
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -198,7 +201,7 @@ html, body {
   backdrop-filter: blur(5px);
 }
 
-// Notification styles
+/* Notification styles */
 .mat-mdc-snack-bar-container {
   &.success-snackbar {
     --mdc-snackbar-container-color: #43a047;
@@ -211,9 +214,24 @@ html, body {
     --mat-mdc-snack-bar-button-color: #fff;
     --mdc-snackbar-supporting-text-color: #fff;
   }
+
+  &.anomaly-snackbar {
+    --mdc-snackbar-container-color: rgba(244, 67, 54, 0.9);
+    --mat-mdc-snack-bar-button-color: white;
+    --mdc-snackbar-supporting-text-color: white;
+  }
+
+  &.status-snackbar {
+    --mdc-snackbar-container-color: rgba(33, 150, 243, 0.9);
+    --mat-mdc-snack-bar-button-color: white;
+    --mdc-snackbar-supporting-text-color: white;
+  }
 }
 
-// Add to styles.scss
+.anomaly-pulse {
+  animation: pulse 2s infinite;
+}
+
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
@@ -228,23 +246,101 @@ html, body {
   }
 }
 
-.anomaly-pulse {
-  animation: pulse 1.5s infinite;
+/* Company branding styles */
+.company-branding {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
 }
 
-.anomaly-snackbar {
-  --mdc-snackbar-container-color: rgba(244, 67, 54, 0.9);
-  --mat-mdc-snack-bar-button-color: white;
-  --mdc-snackbar-supporting-text-color: white;
+.company-logo {
+  height: 36px;
+  width: auto;
+  margin-right: 12px;
+  object-fit: contain;
 }
 
-.status-snackbar {
-  --mdc-snackbar-container-color: rgba(33, 150, 243, 0.9);
-  --mat-mdc-snack-bar-button-color: white;
-  --mdc-snackbar-supporting-text-color: white;
+.app-title {
+  font-size: 20px;
+  font-weight: 500;
 }
 
-// Responsive adjustments
+/* Connection status styles */
+.connection-status {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-right: 16px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  .connection-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+
+  &.connected {
+    background-color: rgba(76, 175, 80, 0.2);
+
+    .connection-indicator {
+      background-color: #4CAF50;
+      box-shadow: 0 0 5px #4CAF50;
+    }
+  }
+
+  &.reconnecting {
+    background-color: rgba(255, 152, 0, 0.2);
+
+    .connection-indicator {
+      background-color: #FF9800;
+      animation: blink 1s infinite;
+    }
+  }
+
+  &.disconnected {
+    background-color: rgba(244, 67, 54, 0.2);
+
+    .connection-indicator {
+      background-color: #F44336;
+      animation: blink 1s infinite;
+    }
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Sidebar styles */
+.sidebar-header {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+.sidebar-logo {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
   .container {
     padding: 12px;
@@ -260,5 +356,191 @@ html, body {
 
   .mat-mdc-card-title {
     font-size: 16px;
+  }
+
+  .connection-label {
+    display: none;
+  }
+
+  .connection-status {
+    margin-right: 8px;
+    padding: 4px;
+  }
+
+  .company-logo {
+    height: 28px;
+  }
+
+  .app-title {
+    font-size: 16px;
+  }
+}
+
+/* Dark theme styles */
+body.dark-theme {
+  --primary-bg: #121212;
+  --secondary-bg: #1e1e1e;
+  --card-bg: #2d2d2d;
+  --primary-text: #ffffff;
+  --secondary-text: #b0b0b0;
+  --border-color: #414141;
+  /* Update Material theme */
+  background-color: var(--primary-bg);
+  color: var(--primary-text);
+  /* Apply to components */
+  .mat-mdc-card {
+    background-color: var(--card-bg);
+    color: var(--primary-text);
+
+    .mat-mdc-card-header {
+      background-color: var(--secondary-bg);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .mat-mdc-card-title {
+      color: #90caf9;
+    }
+  }
+
+  .sidenav {
+    background-color: var(--secondary-bg);
+    border-right: 1px solid var(--border-color);
+  }
+
+  .content {
+    background-color: var(--primary-bg);
+  }
+
+  .app-footer {
+    background-color: var(--secondary-bg);
+    color: var(--secondary-text);
+    border-top: 1px solid var(--border-color);
+  }
+
+  .mat-mdc-table {
+    background-color: var(--card-bg);
+
+    .mat-mdc-header-row {
+      background-color: var(--secondary-bg);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .mat-mdc-header-cell {
+      color: #90caf9;
+    }
+
+    .mat-mdc-row:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .mat-mdc-row:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .mat-mdc-cell {
+      color: var(--primary-text);
+    }
+  }
+  /* Other component-specific dark theme styles */
+  .chart-controls-toolbar {
+    background-color: var(--secondary-bg) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
+  .chart-loading {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    color: var(--primary-text) !important;
+  }
+
+  .connection-status {
+    &.connected {
+      background-color: rgba(76, 175, 80, 0.3) !important;
+    }
+
+    &.reconnecting {
+      background-color: rgba(255, 152, 0, 0.3) !important;
+    }
+
+    &.disconnected {
+      background-color: rgba(244, 67, 54, 0.3) !important;
+    }
+
+    color: var(--primary-text) !important;
+  }
+  /* Override Plotly chart colors for dark mode */
+  .js-plotly-plot .plotly .main-svg {
+    background: var(--card-bg) !important;
+  }
+
+  .js-plotly-plot .plotly .bg {
+    fill: var(--card-bg) !important;
+  }
+
+  .js-plotly-plot .plotly .xtick text,
+  .js-plotly-plot .plotly .ytick text,
+  .js-plotly-plot .plotly .gtitle,
+  .js-plotly-plot .plotly .ztick text {
+    fill: var(--primary-text) !important;
+  }
+
+  .js-plotly-plot .plotly .xgrid,
+  .js-plotly-plot .plotly .ygrid {
+    stroke: var(--border-color) !important;
+  }
+  /* Form fields in dark mode */
+  .mat-mdc-form-field {
+    .mat-mdc-text-field-wrapper {
+      background-color: var(--secondary-bg);
+    }
+
+    .mat-mdc-form-field-label,
+    .mat-mdc-input-element {
+      color: var(--primary-text);
+    }
+  }
+  /* Button toggle in dark mode */
+  .mat-button-toggle-group {
+    background-color: var(--secondary-bg);
+    border-color: var(--border-color);
+  }
+
+  .mat-button-toggle {
+    color: var(--secondary-text);
+
+    &.mat-button-toggle-checked {
+      background-color: #3f51b5;
+      color: white;
+    }
+  }
+  /* Date picker in dark mode */
+  .mat-datepicker-content {
+    background-color: var(--secondary-bg);
+    color: var(--primary-text);
+  }
+  /* Custom scrollbar for dark mode */
+  ::-webkit-scrollbar-track {
+    background: var(--secondary-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #555;
+
+    &:hover {
+      background: #777;
+    }
+  }
+  /* Chart legend in dark mode */
+  .chart-legend {
+    background: rgba(0, 0, 0, 0.5) !important;
+    border: 1px solid var(--border-color) !important;
+
+    .legend-label {
+      color: var(--primary-text) !important;
+    }
+  }
+  /* Material toolbar in dark mode */
+  .mat-toolbar.mat-primary {
+    background-color: #1e1e1e !important;
+    color: white !important;
   }
 }

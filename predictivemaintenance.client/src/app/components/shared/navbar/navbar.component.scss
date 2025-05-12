@@ -1,8 +1,113 @@
-.app-title {
-  margin-left: 8px;
-  font-size: 20px;
+.app-toolbar {
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .spacer {
   flex: 1 1 auto;
+}
+
+.company-branding {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.company-logo {
+  height: 36px;
+  width: auto;
+  margin-right: 12px;
+  object-fit: contain;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-right: 16px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  .connection-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+
+  &.connected {
+    background-color: rgba(76, 175, 80, 0.2);
+
+    .connection-indicator {
+      background-color: #4CAF50;
+      box-shadow: 0 0 5px #4CAF50;
+    }
+  }
+
+  &.reconnecting {
+    background-color: rgba(255, 152, 0, 0.2);
+
+    .connection-indicator {
+      background-color: #FF9800;
+      animation: blink 1s infinite;
+    }
+  }
+
+  &.disconnected {
+    background-color: rgba(244, 67, 54, 0.2);
+
+    .connection-indicator {
+      background-color: #F44336;
+      animation: blink 1s infinite;
+    }
+  }
+}
+
+.theme-toggle {
+  margin: 0 8px;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (max-width: 768px) {
+  .connection-label {
+    display: none;
+  }
+
+  .connection-status {
+    margin-right: 8px;
+    padding: 4px;
+  }
+
+  .company-logo {
+    height: 28px;
+  }
+
+  .app-title {
+    font-size: 16px;
+    max-width: 150px;
+  }
 }

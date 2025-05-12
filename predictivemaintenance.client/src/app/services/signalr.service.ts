@@ -4,17 +4,12 @@ import { HubConnection, HubConnectionBuilder, LogLevel, HubConnectionState } fro
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { SensorReading } from '../models/sensor-reading.model';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SignalRService {
-  subscribeToEquipment(equipmentId: number) {
-      throw new Error('Method not implemented.');
-  }
-  unsubscribeFromEquipment(equipmentId: number) {
-      throw new Error('Method not implemented.');
-  }
   private hubConnection: HubConnection;
   private sensorReadingsSubject = new Subject<SensorReading | null>();
   private anomalySubject = new Subject<any | null>();
@@ -27,11 +22,14 @@ export class SignalRService {
   private maxRetries = 10;
   private startingPromise: Promise<void> | null = null;
   private reconnectTimer: any = null;
+  private connectionCheckTimer: any = null;
+  private pingTimer: any = null;
+  private autoStart = true; // Flag to auto-start connection
 
   constructor(private snackBar: MatSnackBar) {
     // Create the connection with improved reliability settings
     this.hubConnection = new HubConnectionBuilder()
-      .withUrl('/hubs/monitoring')
+      .withUrl(`${environment.apiUrl}/hubs/monitoring`)
       .configureLogging(LogLevel.Information)
       .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 15000, 30000])
       .build();
@@ -42,11 +40,15 @@ export class SignalRService {
     // Set up connection event handlers
     this.setupConnectionEvents();
 
-    // Start the connection immediately but only once
-    this.startConnection();
+    // Start the connection immediately but only once if autoStart is true
+    if (this.autoStart) {
+      setTimeout(() => {
+        this.startConnection();
+      }, 500); // Small delay to allow UI to render first
+    }
 
     // Check connection status periodically and reconnect if needed
-    setInterval(() => this.checkConnection(), 30000);
+    setInterval(() => this.checkConnection(), 15000);
   }
 
   private registerOnServerEvents(): void {
@@ -94,22 +96,61 @@ export class SignalRService {
         ...simulationEvent
       });
     });
+
+    // Handle ping (connection test)
+    this.hubConnection.on('Pong', () => {
+      console.log('Received pong from server');
+      // Connection is alive, reset retry count
+      this.retryCount = 0;
+    });
   }
 
   private showAnomalyNotification(anomaly: any): void {
-    const message = `Anomaly detected: ${anomaly.sensorType} = ${anomaly.value} for Equipment #${anomaly.equipmentId}`;
+    if (!anomaly) return;
+
+    // Create a more detailed message with equipment name if available
+    const equipmentName = anomaly.equipmentName || `Equipment #${anomaly.equipmentId}`;
+    const message = `Anomaly detected: ${anomaly.sensorType} = ${anomaly.value} for ${equipmentName}`;
+
+    // Show a more visible notification
     this.snackBar.open(message, 'View', {
-      duration: 5000,
-      panelClass: ['anomaly-snackbar']
+      duration: 8000, // Increased duration
+      panelClass: ['anomaly-snackbar', 'anomaly-pulse'], // Added animation class
+      horizontalPosition: 'right',
+      verticalPosition: 'top'
     });
+
+    // Play sound alert if available
+    this.playAlert('anomaly');
   }
 
   private showStatusChangeNotification(statusUpdate: any): void {
+    if (!statusUpdate) return;
+
     const message = `Equipment ${statusUpdate.equipmentName} status changed: ${statusUpdate.previousStatus} → ${statusUpdate.currentStatus}`;
     this.snackBar.open(message, 'View', {
-      duration: 5000,
-      panelClass: ['status-snackbar']
+      duration: 6000,
+      panelClass: ['status-snackbar'],
+      horizontalPosition: 'right',
+      verticalPosition: 'top'
     });
+
+    // Play sound alert if it's an escalation
+    if (statusUpdate.isEscalation) {
+      this.playAlert('status');
+    }
+  }
+
+  private playAlert(type: 'anomaly' | 'status'): void {
+    try {
+      // Different sounds for different alert types
+      const soundFile = type === 'anomaly' ? 'anomaly-alert.mp3' : 'status-change.mp3';
+      const audio = new Audio(`assets/sounds/${soundFile}`);
+      audio.volume = 0.5;
+      audio.play().catch(err => console.log('Audio play error:', err));
+    } catch (e) {
+      console.error('Error playing alert sound:', e);
+    }
   }
 
   private setupConnectionEvents(): void {
@@ -145,6 +186,13 @@ export class SignalRService {
         this.reconnectTimer = setTimeout(() => this.startConnection(), delay);
       } else {
         console.error('Max reconnection attempts reached. Please refresh the page.');
+        // Show a user-friendly notification
+        this.snackBar.open('Connection lost. Please refresh the page.', 'Refresh', {
+          duration: 0, // Stays open until user dismisses
+          panelClass: ['error-snackbar']
+        }).onAction().subscribe(() => {
+          window.location.reload();
+        });
       }
     });
   }
@@ -154,7 +202,43 @@ export class SignalRService {
     if (this.hubConnection.state === HubConnectionState.Disconnected && !this.startingPromise) {
       console.log('Connection check found disconnected state, attempting to reconnect...');
       this.startConnection();
+    } else if (this.hubConnection.state === HubConnectionState.Connected) {
+      // Send a ping to verify the connection is really alive
+      this.sendPing();
     }
+  }
+
+  private sendPing(): void {
+    // Try to invoke a ping method on the server
+    try {
+      this.hubConnection.invoke('Ping').catch(err => {
+        console.warn('Ping failed, connection might be dead', err);
+        // Force reconnect
+        this.hubConnection.stop().then(() => {
+          this.startConnection();
+        }).catch(stopErr => {
+          console.error('Error stopping connection', stopErr);
+          this.connectionStateSubject.next('Disconnected');
+        });
+      });
+    } catch (err) {
+      console.error('Error sending ping', err);
+    }
+  }
+
+  private scheduleConnectionCheck(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+    }
+
+    // Test connection with a ping every 20 seconds
+    this.pingTimer = setInterval(() => {
+      if (this.hubConnection.state === HubConnectionState.Connected) {
+        this.sendPing();
+      } else {
+        this.checkConnection();
+      }
+    }, 20000);
   }
 
   private resubscribeToGroups(): void {
@@ -198,18 +282,39 @@ export class SignalRService {
     // Start a new connection
     console.log('Starting new SignalR connection...');
     this.connectionStateSubject.next('Connecting');
+
+    // Add a timeout to prevent hanging connections
+    const connectionTimeout = setTimeout(() => {
+      if (!this.connectionIsEstablished) {
+        console.error('Connection attempt timed out');
+        this.connectionStateSubject.next('Disconnected');
+        this.startingPromise = null;
+
+        // Try to reconnect automatically
+        if (this.retryCount < this.maxRetries) {
+          this.retryCount++;
+          this.startConnection();
+        }
+      }
+    }, 10000); // 10 second timeout
+
     this.startingPromise = this.hubConnection.start()
       .then(() => {
+        clearTimeout(connectionTimeout);
         console.log('SignalR connection established successfully');
         this.connectionIsEstablished = true;
         this.connectionStateSubject.next('Connected');
         this.retryCount = 0;
         this.startingPromise = null;
 
+        // Start ping checks to keep connection alive
+        this.scheduleConnectionCheck();
+
         // Resubscribe to groups if necessary
         this.resubscribeToGroups();
       })
       .catch(err => {
+        clearTimeout(connectionTimeout);
         console.error('Error establishing SignalR connection:', err);
         this.connectionIsEstablished = false;
         this.connectionStateSubject.next('Failed');
@@ -237,9 +342,59 @@ export class SignalRService {
     return this.startingPromise;
   }
 
-  // Public methods remain mostly the same but use Subjects instead of BehaviorSubjects
-  // for faster propagation of events
+  // Implement equipment subscription methods
+  public subscribeToEquipment(equipmentId: number): Promise<void> {
+    if (!equipmentId || isNaN(equipmentId)) {
+      return Promise.reject(new Error('Invalid equipment ID'));
+    }
 
+    // Add to subscription set for tracking
+    this.subscribedEquipment.add(equipmentId);
+
+    // If not connected, just track it for later subscription when connected
+    if (this.hubConnection.state !== HubConnectionState.Connected) {
+      console.log(`Not connected yet. Will subscribe to equipment ${equipmentId} when connected.`);
+      return Promise.resolve();
+    }
+
+    console.log(`Subscribing to equipment ${equipmentId}`);
+    return this.hubConnection.invoke('SubscribeToEquipment', equipmentId)
+      .then(() => {
+        console.log(`Successfully subscribed to equipment ${equipmentId}`);
+      })
+      .catch(err => {
+        console.error(`Error subscribing to equipment ${equipmentId}:`, err);
+        // Keep in the set for retry
+        throw err;
+      });
+  }
+
+  public unsubscribeFromEquipment(equipmentId: number): Promise<void> {
+    if (!equipmentId || isNaN(equipmentId)) {
+      return Promise.reject(new Error('Invalid equipment ID'));
+    }
+
+    // Remove from subscription set
+    this.subscribedEquipment.delete(equipmentId);
+
+    // If not connected, nothing to do on the server
+    if (this.hubConnection.state !== HubConnectionState.Connected) {
+      console.log(`Not connected. No need to unsubscribe from equipment ${equipmentId} on server.`);
+      return Promise.resolve();
+    }
+
+    console.log(`Unsubscribing from equipment ${equipmentId}`);
+    return this.hubConnection.invoke('UnsubscribeFromEquipment', equipmentId)
+      .then(() => {
+        console.log(`Successfully unsubscribed from equipment ${equipmentId}`);
+      })
+      .catch(err => {
+        console.error(`Error unsubscribing from equipment ${equipmentId}:`, err);
+        throw err;
+      });
+  }
+
+  // Public observables
   public getSensorReadings(): Observable<SensorReading | null> {
     return this.sensorReadingsSubject.asObservable();
   }
@@ -260,5 +415,18 @@ export class SignalRService {
     return this.connectionStateSubject.asObservable();
   }
 
-  // Rest of the methods remain the same
+  // Add manual reconnect function to allow UI buttons to trigger reconnection
+  public reconnect(): Promise<void> {
+    // Stop and restart
+    return this.hubConnection.stop()
+      .then(() => {
+        this.retryCount = 0; // Reset retry count for manual reconnect
+        return this.startConnection();
+      })
+      .catch(err => {
+        console.error('Error during manual reconnection', err);
+        this.startConnection();
+        throw err;
+      });
+  }
 }

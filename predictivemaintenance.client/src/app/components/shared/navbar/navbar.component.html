@@ -1,13 +1,27 @@
-<mat-toolbar color="primary">
-  <button mat-icon-button (click)="toggleSidebar.emit()">
+<mat-toolbar color="primary" class="app-toolbar">
+  <button mat-icon-button (click)="toggleSidebar.emit()" class="menu-button">
     <mat-icon>menu</mat-icon>
   </button>
 
-  <span class="app-title">Predictive Maintenance System</span>
+  <div class="company-branding">
+    <img src="assets/images/ETAP Color Logo.png" alt="ETAP" class="company-logo" />
+    <span class="app-title">Predictive Maintenance System</span>
+  </div>
 
   <span class="spacer"></span>
 
-  <!-- Add the anomaly notification component here -->
+  <!-- Connection status indicator -->
+  <div class="connection-status" [ngClass]="connectionState" (click)="reconnect()">
+    <span class="connection-indicator"></span>
+    <span class="connection-label">{{ getConnectionLabel() }}</span>
+  </div>
+
+  <!-- Theme toggle button -->
+  <button mat-icon-button (click)="toggleTheme()" matTooltip="Toggle dark/light theme" class="theme-toggle">
+    <mat-icon>{{ isDarkTheme ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+
+  <!-- Add the anomaly notification component -->
   <app-anomaly-notification></app-anomaly-notification>
 
   <button mat-icon-button matTooltip="Notifications">

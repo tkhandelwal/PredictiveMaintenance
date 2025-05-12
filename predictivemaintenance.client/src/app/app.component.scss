@@ -1,3 +1,4 @@
+/* src/app/app.component.scss */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -20,6 +21,18 @@
   border-right: 1px solid rgba(0, 0, 0, 0.1);
   background-color: #fafafa;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-header {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+.sidebar-logo {
+  height: 42px;
 }
 
 .content {

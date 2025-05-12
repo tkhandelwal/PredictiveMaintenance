@@ -1,4 +1,4 @@
-<div class="app-container">
+<div class="app-container" [class.dark-theme]="isDarkTheme">
   <!-- Main Toolbar/Navbar -->
   <app-navbar (toggleSidebar)="toggleSidebar()"></app-navbar>
 
@@ -6,6 +6,9 @@
   <mat-drawer-container class="sidenav-container">
     <!-- Sidebar -->
     <mat-drawer #drawer mode="side" [opened]="!isMobile" class="sidenav">
+      <div class="sidebar-header">
+        <img src="assets/images/company-logo.png" alt="ETAP" class="sidebar-logo">
+      </div>
       <app-sidebar></app-sidebar>
     </mat-drawer>
 
@@ -15,10 +18,10 @@
         <router-outlet></router-outlet>
       </div>
 
-      <!-- Footer (Optional) -->
+      <!-- Footer -->
       <footer class="app-footer">
         <div class="footer-content">
-          <p>Predictive Maintenance System &copy; 2025</p>
+          <p>ETAP Predictive Maintenance System &copy; 2025</p>
           <p>Version 1.0.0</p>
         </div>
       </footer>

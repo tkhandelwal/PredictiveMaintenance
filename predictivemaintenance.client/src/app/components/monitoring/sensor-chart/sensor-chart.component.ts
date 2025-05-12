@@ -1,40 +1,137 @@
+// src/app/components/monitoring/sensor-chart/sensor-chart.component.ts
 import { Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SensorReading } from '../../../models/sensor-reading.model';
 import { SignalRService } from '../../../services/signalr.service';
-import { Subscription } from 'rxjs';
+import { ThemeService } from '../../../services/theme.service';
+import { Subscription, interval } from 'rxjs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Declare Plotly as any to avoid TypeScript errors
 declare const Plotly: any;
 
+// Define the TimeWindowKey type
+type TimeWindowKey = '1m' | '5m' | '10m' | '30m' | '1h' | '4h' | '1d';
+
 @Component({
   selector: 'app-sensor-chart',
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    MatProgressSpinnerModule,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatIconModule,
+    MatTooltipModule
+  ],
   template: `
     <div class="chart-container">
+      <div class="chart-controls-toolbar">
+        <!-- Time window selection -->
+        <mat-button-toggle-group [(ngModel)]="selectedTimeWindow" (change)="onTimeWindowChange($event)">
+          <mat-button-toggle value="1m">1m</mat-button-toggle>
+          <mat-button-toggle value="5m">5m</mat-button-toggle>
+          <mat-button-toggle value="10m">10m</mat-button-toggle>
+          <mat-button-toggle value="30m">30m</mat-button-toggle>
+          <mat-button-toggle value="1h">1h</mat-button-toggle>
+          <mat-button-toggle value="4h">4h</mat-button-toggle>
+          <mat-button-toggle value="1d">1d</mat-button-toggle>
+        </mat-button-toggle-group>
+        
+        <!-- Date/time picker -->
+        <div class="date-time-picker">
+          <mat-form-field appearance="fill">
+            <mat-label>Start date</mat-label>
+            <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate">
+            <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+            <mat-datepicker #startPicker></mat-datepicker>
+          </mat-form-field>
+          
+          <mat-form-field appearance="fill">
+            <mat-label>End date</mat-label>
+            <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate">
+            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+          </mat-form-field>
+          
+          <button mat-raised-button color="primary" (click)="applyDateRange()">Apply</button>
+        </div>
+        
+        <!-- Navigation controls -->
+        <div class="chart-navigation">
+          <button mat-icon-button (click)="moveTimePeriod(-1)" matTooltip="Previous time period">
+            <mat-icon>navigate_before</mat-icon>
+          </button>
+          <button mat-icon-button (click)="moveTimePeriod(1)" matTooltip="Next time period">
+            <mat-icon>navigate_next</mat-icon>
+          </button>
+          <button mat-icon-button (click)="resetToLiveData()" 
+                  matTooltip="Return to live data"
+                  [disabled]="isLiveData">
+            <mat-icon>update</mat-icon>
+          </button>
+        </div>
+      </div>
+
       <div #chart class="chart"></div>
+      
       <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
         <mat-spinner diameter="40"></mat-spinner>
         <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing chart...' }}</p>
       </div>
-      <div class="anomaly-legend" *ngIf="anomalyCount > 0">
-        <div class="anomaly-indicator"></div>
-        <span>{{ anomalyCount }} Anomalies Detected</span>
+      
+      <div class="chart-controls" *ngIf="chartInitialized">
+        <div class="chart-legend">
+          <ng-container *ngFor="let sensor of sensorTypes">
+            <div class="legend-item">
+              <span class="legend-color" [style.background-color]="getSensorColor(sensor, false)"></span>
+              <span class="legend-label">{{sensor}}</span>
+            </div>
+          </ng-container>
+        </div>
+        
+        <div class="anomaly-legend" *ngIf="anomalyCount > 0">
+          <div class="anomaly-indicator"></div>
+          <span>{{ anomalyCount }} Anomalies Detected</span>
+        </div>
+      </div>
+      
+      <div class="connection-status" [class.connected]="connected" [class.disconnected]="!connected">
+        <span class="status-indicator"></span>
+        {{ connected ? 'Real-time data active' : 'Waiting for connection...' }}
       </div>
     </div>
   `,
   styles: [`
     .chart-container {
       width: 100%;
-      height: 400px;
+      height: 100%;
+      min-height: 500px;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     
     .chart {
+      flex: 1;
       width: 100%;
-      height: 100%;
+      min-height: 400px;
+      overflow: hidden;
     }
     
     .chart-loading {
@@ -50,16 +147,74 @@ declare const Plotly: any;
       background: rgba(255,255,255,0.8);
       font-size: 16px;
       color: #666;
+      z-index: 5;
     }
     
     .chart-loading p {
       margin-top: 16px;
     }
     
-    .anomaly-legend {
+    .chart-controls-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      background-color: #f5f5f5;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+      gap: 8px;
+      z-index: 2;
+    }
+    
+    .date-time-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .chart-navigation {
+      display: flex;
+      align-items: center;
+    }
+    
+    .chart-controls {
       position: absolute;
-      top: 10px;
+      top: 70px;
       right: 10px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: rgba(255,255,255,0.8);
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #eee;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .legend-label {
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .anomaly-legend {
       background: rgba(244, 67, 54, 0.1);
       border: 1px solid rgba(244, 67, 54, 0.5);
       border-radius: 4px;
@@ -68,7 +223,7 @@ declare const Plotly: any;
       align-items: center;
       color: #d32f2f;
       font-weight: 500;
-      z-index: 10;
+      animation: pulse 2s infinite;
     }
     
     .anomaly-indicator {
@@ -78,6 +233,69 @@ declare const Plotly: any;
       background-color: #d32f2f;
       margin-right: 8px;
       box-shadow: 0 0 8px #d32f2f;
+    }
+
+    .connection-status {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .connected .status-indicator {
+      background-color: #4CAF50;
+      box-shadow: 0 0 5px #4CAF50;
+    }
+
+    .disconnected .status-indicator {
+      background-color: #f44336;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+      }
+      70% {
+        box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .chart-controls-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .date-time-picker {
+        flex-direction: column;
+        width: 100%;
+      }
+      
+      mat-form-field {
+        width: 100%;
+      }
     }
   `]
 })
@@ -89,28 +307,76 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   private chart: any;
   chartInitialized = false;
   isLoading = true;
+  connected = false;
   private subscriptions: Subscription[] = [];
   private readingsMap: Map<string, SensorReading[]> = new Map();
+  sensorTypes: string[] = [];
   anomalyCount = 0;
+  private plotlyAvailable = false;
   private updateInterval: any;
+  private refreshTimer: any;
+  private pollTimer: any;
+  isDarkTheme = false;
 
-  constructor(private signalRService: SignalRService) { }
+  // Time navigation properties
+  selectedTimeWindow: TimeWindowKey = '30m';
+  startDate: Date = new Date(Date.now() - 30 * 60 * 1000);
+  endDate: Date = new Date();
+  isLiveData: boolean = true;
+
+  // Time window definitions
+  private readonly timeWindows: Record<TimeWindowKey, { minutes?: number, hours?: number, days?: number }> = {
+    '1m': { minutes: 1 },
+    '5m': { minutes: 5 },
+    '10m': { minutes: 10 },
+    '30m': { minutes: 30 },
+    '1h': { hours: 1 },
+    '4h': { hours: 4 },
+    '1d': { days: 1 }
+  };
+
+  // Performance optimization properties
+  private pendingUpdate = false;
+  private readonly updateThrottleMs = 300; // Limit updates to every 300ms
+  private lastUpdateTime = 0;
+
+  constructor(
+    private signalRService: SignalRService,
+    private themeService: ThemeService
+  ) { }
 
   ngOnInit(): void {
     console.log(`Initializing chart for equipment ${this.equipmentId}`);
 
+    // Subscribe to theme changes
+    this.subscriptions.push(
+      this.themeService.isDarkTheme$().subscribe(isDark => {
+        this.isDarkTheme = isDark;
+        // Update chart if it's already initialized
+        if (this.chartInitialized) {
+          this.updateChartTheme();
+        }
+      })
+    );
+
+    // Check if Plotly is available
+    this.checkPlotlyAvailability();
+
     // Organize readings by sensor type
     this.organizeReadings();
 
-    // Initialize the chart
-    if (typeof Plotly !== 'undefined') {
-      this.initChart();
-    } else {
-      console.error('Plotly is not available! Loading dynamically...');
-      this.loadPlotlyScript().then(() => {
-        this.initChart();
-      });
-    }
+    // Subscribe to connection state
+    this.subscriptions.push(
+      this.signalRService.getConnectionState().subscribe(state => {
+        this.connected = state === 'Connected';
+        console.log(`SignalR connection state: ${state}`);
+
+        // If we just reconnected, try to update the chart
+        if (state === 'Connected' && this.chartInitialized) {
+          this.updateChart();
+        }
+      })
+    );
 
     // Subscribe to real-time sensor readings
     this.subscriptions.push(
@@ -134,13 +400,13 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       this.signalRService.getStatusChanges().subscribe(statusChange => {
         if (statusChange && statusChange.equipmentId === this.equipmentId) {
           console.log(`Status changed for equipment ${this.equipmentId}: ${statusChange.currentStatus}`);
-          // You could update UI elements based on status change
+          // Update UI elements based on status change if needed
         }
       })
     );
 
-    // Subscribe to the equipment updates - FIX: Promise handling
-    Promise.resolve(this.signalRService.subscribeToEquipment(this.equipmentId))
+    // Subscribe to the equipment updates
+    this.signalRService.subscribeToEquipment(this.equipmentId)
       .then(() => {
         console.log(`Successfully subscribed to equipment ${this.equipmentId}`);
       })
@@ -154,6 +420,17 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
         this.updateChart();
       }
     }, 10000); // Refresh every 10 seconds as a backup
+
+    // Set up periodic chart reinitialization to avoid stale data
+    this.refreshTimer = setInterval(() => {
+      if (this.chartInitialized) {
+        console.log('Performing periodic chart refresh');
+        this.reinitializeChart();
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+
+    // Set up a polling fallback for when SignalR isn't working
+    this.setupPollingFallback();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -164,7 +441,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
 
       if (this.chartInitialized) {
         this.updateChart();
-      } else if (this.readings.length > 0) {
+      } else if (this.readings.length > 0 && this.plotlyAvailable) {
         this.initChart();
       }
     }
@@ -177,21 +454,146 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       clearInterval(this.updateInterval);
     }
 
-    // FIX: Promise handling
-    Promise.resolve(this.signalRService.unsubscribeFromEquipment(this.equipmentId))
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+    }
+
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+    }
+
+    // Unsubscribe from SignalR
+    this.signalRService.unsubscribeFromEquipment(this.equipmentId)
       .catch((err: Error) => {
         console.error(`Error unsubscribing from equipment ${this.equipmentId}:`, err);
       });
+
+    // Clean up Plotly chart
+    if (this.chart) {
+      try {
+        Plotly.purge(this.chart);
+      } catch (e) {
+        console.error('Error cleaning up chart:', e);
+      }
+    }
+  }
+
+  // Time navigation methods
+  onTimeWindowChange(event: any): void {
+    this.isLiveData = true;
+    this.updateTimeRange();
+    this.updateChart();
+  }
+
+  updateTimeRange(): void {
+    const windowKey = this.selectedTimeWindow;
+    const window = this.timeWindows[windowKey];
+
+    this.endDate = new Date();
+    this.startDate = new Date(this.endDate);
+
+    if (window.minutes) {
+      this.startDate.setMinutes(this.startDate.getMinutes() - window.minutes);
+    } else if (window.hours) {
+      this.startDate.setHours(this.startDate.getHours() - window.hours);
+    } else if (window.days) {
+      this.startDate.setDate(this.startDate.getDate() - window.days);
+    }
+  }
+
+  applyDateRange(): void {
+    if (this.startDate && this.endDate) {
+      this.isLiveData = false;
+      this.updateChart();
+    }
+  }
+
+  moveTimePeriod(direction: number): void {
+    // Calculate time difference between start and end
+    const timeSpan = this.endDate.getTime() - this.startDate.getTime();
+
+    // Move both dates by the timespan in the specified direction
+    this.startDate = new Date(this.startDate.getTime() + (timeSpan * direction));
+    this.endDate = new Date(this.endDate.getTime() + (timeSpan * direction));
+
+    // If we move to current time, switch to live mode
+    const now = new Date();
+    if (Math.abs(this.endDate.getTime() - now.getTime()) < 10000) { // Within 10 seconds of now
+      this.endDate = now;
+      this.isLiveData = true;
+    } else {
+      this.isLiveData = false;
+    }
+
+    this.updateChart();
+  }
+
+  resetToLiveData(): void {
+    this.isLiveData = true;
+    this.updateTimeRange();
+    this.updateChart();
+  }
+
+  private checkPlotlyAvailability(): void {
+    if (typeof Plotly !== 'undefined') {
+      this.plotlyAvailable = true;
+      this.initChart();
+    } else {
+      console.log('Plotly not available, attempting to load dynamically');
+      this.loadPlotlyScript().then(() => {
+        this.plotlyAvailable = true;
+        this.initChart();
+      }).catch(error => {
+        console.error('Failed to load Plotly:', error);
+        this.isLoading = false;
+        // Show a friendly message to the user
+        const element = this.chartElement.nativeElement;
+        if (element) {
+          element.innerHTML = `
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%;">
+              <p style="color: #d32f2f; font-weight: bold;">Chart library could not be loaded</p>
+              <p>Please refresh the page or check your internet connection</p>
+            </div>
+          `;
+        }
+      });
+    }
+  }
+
+  private setupPollingFallback(): void {
+    this.pollTimer = setInterval(() => {
+      // Only use polling if SignalR is not connected
+      if (!this.connected && this.equipmentId) {
+        console.log('SignalR not connected, using polling fallback');
+        // This would be implemented with an API call to get latest readings
+        // For now, we'll just show a "disconnected" status in the chart
+      }
+    }, 20000); // Poll every 20 seconds
   }
 
   private playAnomalyAlert(): void {
     try {
       const audio = new Audio('assets/sounds/anomaly-alert.mp3');
       audio.volume = 0.5;
-      audio.play();
+      audio.play().catch(e => console.log('Audio play error:', e));
     } catch (e) {
       console.error('Error playing alert sound:', e);
     }
+  }
+
+  private reinitializeChart(): void {
+    if (!this.chartElement || !this.chartElement.nativeElement) return;
+
+    if (this.chart) {
+      try {
+        Plotly.purge(this.chart);
+      } catch (e) {
+        console.error('Error purging chart:', e);
+      }
+    }
+
+    this.chartInitialized = false;
+    this.initChart();
   }
 
   private organizeReadings(): void {
@@ -206,7 +608,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       if (!this.readingsMap.has(reading.sensorType)) {
         this.readingsMap.set(reading.sensorType, []);
       }
-      this.readingsMap.get(reading.sensorType)!.push(reading);
+      this.readingsMap.get(reading.sensorType)!.push({ ...reading }); // Clone reading
 
       // Count anomalies
       if (reading.isAnomaly) {
@@ -218,6 +620,9 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     this.readingsMap.forEach((readings, sensorType) => {
       readings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     });
+
+    // Update sensor types list for legend
+    this.sensorTypes = Array.from(this.readingsMap.keys());
   }
 
   private loadPlotlyScript(): Promise<void> {
@@ -239,147 +644,213 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private initChart(): void {
-    const element = this.chartElement.nativeElement;
+    const element = this.chartElement?.nativeElement;
     if (!element) {
       console.error('Chart element not found');
       return;
     }
 
-    console.log('Initializing chart');
+    if (!this.plotlyAvailable) {
+      console.log('Plotly not available yet, deferring chart initialization');
+      return;
+    }
 
-    // Create traces for each sensor type
-    const traces: any[] = [];
-    const anomalyTraces: any[] = [];
+    console.log('Initializing chart with', this.readingsMap.size, 'sensor types');
 
-    if (this.readingsMap.size === 0) {
-      // Create empty traces if no data
-      traces.push({
-        type: 'scatter',
-        mode: 'lines',
-        name: 'No Data',
-        x: [new Date(), new Date(new Date().getTime() + 60000)],
-        y: [0, 0],
-        line: { dash: 'dash', color: '#cccccc' }
-      });
-    } else {
-      // Create traces for each sensor type - split normal and anomaly data
-      this.readingsMap.forEach((readings, sensorType) => {
-        // Normal data trace
-        const normalData = readings.filter(r => !r.isAnomaly);
+    try {
+      // Create traces for each sensor type
+      const traces: any[] = [];
+      const anomalyTraces: any[] = [];
 
+      if (this.readingsMap.size === 0) {
+        // Create empty traces if no data
         traces.push({
           type: 'scatter',
           mode: 'lines',
-          name: sensorType,
-          x: normalData.map(r => new Date(r.timestamp)),
-          y: normalData.map(r => r.value),
-          line: {
-            shape: 'spline',
-            width: 3,
-            color: this.getSensorColor(sensorType, false)
+          name: 'No Data',
+          x: [new Date(), new Date(new Date().getTime() + 60000)],
+          y: [0, 0],
+          line: { dash: 'dash', color: '#cccccc' }
+        });
+      } else {
+        // Create traces for each sensor type - split normal and anomaly data
+        this.readingsMap.forEach((readings, sensorType) => {
+          // Normal data trace
+          const normalData = readings.filter(r => !r.isAnomaly);
+
+          traces.push({
+            type: 'scatter',
+            mode: 'lines',
+            name: sensorType,
+            x: normalData.map(r => new Date(r.timestamp)),
+            y: normalData.map(r => r.value),
+            line: {
+              shape: 'spline',
+              width: 3,
+              color: this.getSensorColor(sensorType, false)
+            }
+          });
+
+          // Anomaly data separate trace for better visibility
+          const anomalyData = readings.filter(r => r.isAnomaly);
+
+          if (anomalyData.length > 0) {
+            anomalyTraces.push({
+              type: 'scatter',
+              mode: 'markers',
+              name: `${sensorType} Anomalies`,
+              x: anomalyData.map(r => new Date(r.timestamp)),
+              y: anomalyData.map(r => r.value),
+              marker: {
+                size: 12,
+                symbol: 'circle',
+                color: '#F44336',
+                line: {
+                  width: 2,
+                  color: this.isDarkTheme ? '#333' : 'white'
+                }
+              },
+              hoverinfo: 'x+y+text',
+              text: anomalyData.map(r => `ANOMALY: ${r.sensorType} ${r.value}`)
+            });
           }
         });
 
-        // Anomaly data separate trace for better visibility
-        const anomalyData = readings.filter(r => r.isAnomaly);
-
-        if (anomalyData.length > 0) {
-          anomalyTraces.push({
-            type: 'scatter',
-            mode: 'markers',
-            name: `${sensorType} Anomalies`,
-            x: anomalyData.map(r => new Date(r.timestamp)),
-            y: anomalyData.map(r => r.value),
-            marker: {
-              size: 12,
-              symbol: 'circle',
-              color: '#F44336',
-              line: {
-                width: 2,
-                color: 'white'
-              }
-            },
-            hoverinfo: 'x+y+text',
-            text: anomalyData.map(r => `ANOMALY: ${r.sensorType} ${r.value}`)
-          });
-        }
-      });
-
-      // Add anomaly traces after regular traces
-      traces.push(...anomalyTraces);
-    }
-
-    const layout = {
-      title: {
-        text: 'Sensor Readings',
-        font: { size: 24, color: '#333' }
-      },
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      xaxis: {
-        title: 'Time',
-        type: 'date',
-        gridcolor: '#eee'
-      },
-      yaxis: {
-        title: 'Value',
-        gridcolor: '#eee'
-      },
-      margin: { l: 60, r: 40, b: 50, t: 80, pad: 0 },
-      showlegend: true,
-      legend: { orientation: 'h', y: -0.2 },
-      hovermode: 'closest',
-      annotations: this.anomalyCount > 0 ? [
-        {
-          x: 0.5,
-          y: 1.12,
-          xref: 'paper',
-          yref: 'paper',
-          text: `⚠️ ${this.anomalyCount} Anomalies Detected`,
-          showarrow: false,
-          font: {
-            family: 'Arial',
-            size: 16,
-            color: '#F44336',
-            weight: 'bold'
-          },
-        }
-      ] : []
-    };
-
-    const config = {
-      responsive: true,
-      displayModeBar: true,
-      displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-      toImageButtonOptions: {
-        format: 'png',
-        filename: `equipment-${this.equipmentId}-readings`,
+        // Add anomaly traces after regular traces
+        traces.push(...anomalyTraces);
       }
-    };
+
+      // Basic layout
+      const layout: any = {
+        autosize: true,
+        height: 400,
+        title: {
+          text: 'Sensor Readings',
+          font: { size: 24, color: this.isDarkTheme ? '#ffffff' : '#333333' }
+        },
+        paper_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
+        plot_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
+        xaxis: {
+          title: 'Time',
+          type: 'date',
+          gridcolor: this.isDarkTheme ? '#414141' : '#eee',
+          color: this.isDarkTheme ? '#ffffff' : '#333333',
+          range: [this.startDate, this.endDate]
+        },
+        yaxis: {
+          title: 'Value',
+          gridcolor: this.isDarkTheme ? '#414141' : '#eee',
+          color: this.isDarkTheme ? '#ffffff' : '#333333'
+        },
+        margin: { l: 60, r: 40, b: 50, t: 80, pad: 0 },
+        showlegend: false, // We're using our own legend
+        hovermode: 'closest',
+        annotations: this.anomalyCount > 0 ? [
+          {
+            x: 0.5,
+            y: 1.12,
+            xref: 'paper',
+            yref: 'paper',
+            text: `⚠️ ${this.anomalyCount} Anomalies Detected`,
+            showarrow: false,
+            font: {
+              family: 'Arial',
+              size: 16,
+              color: '#F44336',
+              weight: 'bold'
+            },
+          }
+        ] : []
+      };
+
+      const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        toImageButtonOptions: {
+          format: 'png',
+          filename: `equipment-${this.equipmentId}-readings`,
+        }
+      };
+
+      try {
+        Plotly.newPlot(element, traces, layout, config);
+        this.chart = element;
+        this.chartInitialized = true;
+        this.isLoading = false;
+        console.log('Chart initialized successfully with', traces.length, 'traces');
+
+        // Add click event for anomaly points
+        element.on('plotly_click', (data: any) => {
+          if (!data || !data.points || data.points.length === 0) return;
+
+          const point = data.points[0];
+          const traceName = point.data.name;
+
+          if (traceName && traceName.includes('Anomalies')) {
+            const timestamp = new Date(point.x).toLocaleString();
+            const message = `Anomaly detected: ${point.y} at ${timestamp}`;
+            alert(message);
+          }
+        });
+
+        // Handle resizing
+        window.addEventListener('resize', this.resizeChart.bind(this));
+      } catch (e) {
+        console.error('Error initializing chart:', e);
+        this.isLoading = false;
+        this.showErrorInElement(element, 'Error initializing chart. Please refresh the page.');
+      }
+    } catch (e) {
+      console.error('Error preparing chart data:', e);
+      this.isLoading = false;
+      this.showErrorInElement(element, 'Error preparing chart data. Please refresh the page.');
+    }
+  }
+
+  private resizeChart(): void {
+    if (!this.chart || !this.chartInitialized) return;
 
     try {
-      Plotly.newPlot(element, traces, layout, config);
-      this.chart = element;
-      this.chartInitialized = true;
-      this.isLoading = false;
-      console.log('Chart initialized successfully with', traces.length, 'traces');
-
-      // Add click event for anomaly points
-      element.on('plotly_click', (data: any) => {
-        const point = data.points[0];
-        const traceName = point.data.name;
-
-        if (traceName && traceName.includes('Anomalies')) {
-          const timestamp = new Date(point.x).toLocaleString();
-          const message = `Anomaly detected: ${point.y} at ${timestamp}`;
-          alert(message);
-        }
-      });
+      Plotly.Plots.resize(this.chart);
     } catch (e) {
-      console.error('Error initializing chart:', e);
-      this.isLoading = false;
+      console.error('Error resizing chart:', e);
     }
+  }
+
+  private updateChartTheme(): void {
+    if (!this.chart || !this.chartInitialized) return;
+
+    try {
+      const layout = {
+        title: {
+          font: { color: this.isDarkTheme ? '#ffffff' : '#333333' }
+        },
+        paper_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
+        plot_bgcolor: this.isDarkTheme ? '#2d2d2d' : 'rgba(0,0,0,0)',
+        xaxis: {
+          gridcolor: this.isDarkTheme ? '#414141' : '#eee',
+          color: this.isDarkTheme ? '#ffffff' : '#333333'
+        },
+        yaxis: {
+          gridcolor: this.isDarkTheme ? '#414141' : '#eee',
+          color: this.isDarkTheme ? '#ffffff' : '#333333'
+        }
+      };
+
+      Plotly.relayout(this.chart, layout);
+    } catch (e) {
+      console.error('Error updating chart theme:', e);
+    }
+  }
+
+  private showErrorInElement(element: HTMLElement, message: string): void {
+    element.innerHTML = `
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%;">
+        <p style="color: #d32f2f; font-weight: bold;">${message}</p>
+      </div>
+    `;
   }
 
   private updateChart(): void {
@@ -426,7 +897,7 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
               color: '#F44336',
               line: {
                 width: 2,
-                color: 'white'
+                color: this.isDarkTheme ? '#333' : 'white'
               }
             },
             hoverinfo: 'x+y+text',
@@ -438,11 +909,11 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
       // Add anomaly traces
       allTraces.push(...anomalyTraces);
 
-      // Update full chart data
-      Plotly.react(this.chart, allTraces);
-
-      // Update anomaly annotation
-      Plotly.relayout(this.chart, {
+      // Update x-axis range to focus on selected time window
+      const layout = {
+        xaxis: {
+          range: [this.startDate, this.endDate]
+        },
         annotations: this.anomalyCount > 0 ? [
           {
             x: 0.5,
@@ -459,9 +930,11 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
             },
           }
         ] : []
-      });
+      };
 
-      console.log('Chart updated successfully');
+      // Update full chart data
+      Plotly.react(this.chart, allTraces, layout);
+      console.log('Chart updated successfully with', allTraces.length, 'traces');
     } catch (e) {
       console.error('Error updating chart:', e);
       // If update fails, try recreating the chart
@@ -471,6 +944,8 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private addReading(reading: SensorReading): void {
+    if (!reading) return;
+
     console.log(`Adding reading to chart: ${reading.sensorType} = ${reading.value}`);
 
     // If chart is not initialized, initialize it
@@ -482,20 +957,53 @@ export class SensorChartComponent implements OnInit, OnChanges, OnDestroy {
     // Add the reading to our local data
     if (!this.readingsMap.has(reading.sensorType)) {
       this.readingsMap.set(reading.sensorType, []);
+      this.sensorTypes = Array.from(this.readingsMap.keys());
     }
 
     // Add to map and limit size
     const readings = this.readingsMap.get(reading.sensorType)!;
-    readings.push(reading);
-    if (readings.length > 100) {
+    readings.push({ ...reading }); // Clone reading
+
+    // Limit to last 100 points per sensor
+    while (readings.length > 100) {
       readings.shift(); // Remove oldest
     }
 
-    // Use Plotly.react instead of extend to ensure complete refresh
+    // Only update if in live mode
+    if (!this.isLiveData) return;
+
+    // Throttle updates to avoid excessive redraws
+    const now = Date.now();
+    if (now - this.lastUpdateTime < this.updateThrottleMs) {
+      if (!this.pendingUpdate) {
+        this.pendingUpdate = true;
+        setTimeout(() => {
+          this.updateChart();
+          this.pendingUpdate = false;
+          this.lastUpdateTime = Date.now();
+        }, this.updateThrottleMs);
+      }
+      return;
+    }
+
+    // If we can update now, do it immediately
     this.updateChart();
+    this.lastUpdateTime = now;
   }
 
-  private getSensorColor(sensorType: string, isAnomaly: boolean | undefined): string {
+  private findTraceIndex(traceName: string): number {
+    if (!this.chart || !this.chart.data) return -1;
+
+    for (let i = 0; i < this.chart.data.length; i++) {
+      if (this.chart.data[i].name === traceName) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  getSensorColor(sensorType: string, isAnomaly: boolean | undefined): string {
     if (isAnomaly === true) {  // Check explicitly for true
       return '#F44336'; // Red for all anomalies
     }
