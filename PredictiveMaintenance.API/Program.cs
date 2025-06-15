@@ -38,11 +38,21 @@ builder.Services.AddSingleton<IInfluxDbService, InMemoryInfluxDbService>();
 
 //builder.Services.AddSingleton<IInfluxDbService, InfluxDbService>();
 builder.Services.AddScoped<IEquipmentMonitoringService, EquipmentMonitoringService>();
+builder.Services.AddScoped<IEquipmentService, EquipmentService>();
+builder.Services.AddScoped<ISensorDataService, SensorDataService>();
+builder.Services.AddScoped<IEnergyOptimizationService, EnergyOptimizationService>();
 builder.Services.AddSingleton<IAdvancedAnomalyDetectionService, AdvancedAnomalyDetectionService>();
 builder.Services.AddSingleton<ISyntheticDataGenerator, SyntheticDataGenerator>();
 builder.Services.AddHostedService<DataGenerationBackgroundService>();
 
 var app = builder.Build();
+
+// Ensure database is created with seed data
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

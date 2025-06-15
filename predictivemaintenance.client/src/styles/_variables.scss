@@ -1,0 +1,78 @@
+// src/styles/_variables.scss
+// Color Palette
+$primary-color: #667eea;
+$primary-light: #9f7aea;
+$primary-dark: #5a67d8;
+$secondary-color: #48bb78;
+$secondary-light: #68d391;
+$secondary-dark: #38a169;
+$accent-color: #ed8936;
+$accent-light: #f6ad55;
+$accent-dark: #dd6b20;
+
+$success-color: #48bb78;
+$warning-color: #ed8936;
+$danger-color: #f56565;
+$info-color: #4299e1;
+
+// Gradient Colors
+$gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$gradient-secondary: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+$gradient-accent: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+$gradient-danger: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+$gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+$gradient-dark: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+
+// Equipment Type Colors
+$equipment-colors: ( 'breaker': #e91e63, 'transformer': #9c27b0, 'motor': #3f51b5, 'cable': #009688, 'solar': #ff9800, 'wind': #00bcd4, 'battery': #8bc34a, 'inverter': #795548 );
+
+// Dark Theme Colors
+$dark-bg: #0f0c29;
+$dark-surface: #1e293b;
+$dark-surface-light: #334155;
+$dark-text: #f1f5f9;
+$dark-text-secondary: #94a3b8;
+
+// Spacing
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+$spacing-xxl: 48px;
+
+// Border Radius
+$radius-sm: 4px;
+$radius-md: 8px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+$radius-round: 50%;
+
+// Shadows
+$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+$shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+$shadow-xl: 0 12px 40px rgba(0, 0, 0, 0.15);
+$shadow-xxl: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+// Transitions
+$transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+// Breakpoints
+$breakpoint-xs: 480px;
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-xxl: 1536px;
+
+// Z-index layers
+$z-index-dropdown: 1000;
+$z-index-sticky: 1020;
+$z-index-fixed: 1030;
+$z-index-modal-backdrop: 1040;
+$z-index-modal: 1050;
+$z-index-popover: 1060;
+$z-index-tooltip: 1070;

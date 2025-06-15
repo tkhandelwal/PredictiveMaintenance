@@ -76,6 +76,12 @@ namespace PredictiveMaintenance.API.Services.Monitoring
         public Task<Equipment> GetEquipmentByIdAsync(int id)
         {
             var equipment = _equipment.Find(e => e.Id == id);
+
+            if (equipment == null)
+            {
+                throw new KeyNotFoundException($"Equipment with ID {id} not found");
+            }
+
             return Task.FromResult(equipment);
         }
 
@@ -123,6 +129,11 @@ namespace PredictiveMaintenance.API.Services.Monitoring
                 _logger.LogError(ex, $"Error getting status for equipment {id}");
                 return MaintenanceStatus.Operational;
             }
+        }
+
+        public class NotFoundException : Exception
+        {
+            public NotFoundException(string message) : base(message) { }
         }
 
         public async Task<List<SensorReading>> GetLatestReadingsForEquipmentAsync(int id, int limit = 50)

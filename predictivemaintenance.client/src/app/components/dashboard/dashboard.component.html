@@ -1,151 +1,587 @@
-<div class="dashboard-container">
-  <div class="dashboard-header">
-    <h1>Equipment Monitoring Dashboard</h1>
-    <p class="subtitle">Real-time predictive maintenance insights</p>
-  </div>
-
-  <div class="status-summary">
-    <mat-card class="status-card operational animate-in" (click)="filterByStatus(MaintenanceStatus.Operational)">
-      <mat-card-content>
-        <div class="status-icon"><mat-icon>check_circle</mat-icon></div>
-        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Operational) }}</div>
-        <div class="status-label">Operational</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="status-card warning animate-in" (click)="filterByStatus(MaintenanceStatus.Warning)" style="animation-delay: 0.1s">
-      <mat-card-content>
-        <div class="status-icon"><mat-icon>warning</mat-icon></div>
-        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Warning) }}</div>
-        <div class="status-label">Warning</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="status-card critical animate-in" (click)="filterByStatus(MaintenanceStatus.Critical)" style="animation-delay: 0.2s">
-      <mat-card-content>
-        <div class="status-icon"><mat-icon>error</mat-icon></div>
-        <div class="status-count">{{ getStatusCount(MaintenanceStatus.Critical) }}</div>
-        <div class="status-label">Critical</div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="status-card under-maintenance animate-in" (click)="filterByStatus(MaintenanceStatus.UnderMaintenance)" style="animation-delay: 0.3s">
-      <mat-card-content>
-        <div class="status-icon"><mat-icon>build</mat-icon></div>
-        <div class="status-count">{{ getStatusCount(MaintenanceStatus.UnderMaintenance) }}</div>
-        <div class="status-label">Under Maintenance</div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-
-  <app-predictive-insights></app-predictive-insights>
-
-
-  <div class="dashboard-grid">
-    <div class="grid-item large">
-      <mat-card class="chart-card">
-        <mat-card-header>
-          <mat-card-title>
-            <div class="header-with-icon">
-              <mat-icon>monitoring</mat-icon>
-              <span>Equipment Health Overview</span>
-            </div>
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="health-chart" id="healthChart"></div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-
-    <div class="grid-item">
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>
-            <div class="header-with-icon">
-              <mat-icon>event</mat-icon>
-              <span>Upcoming Maintenance</span>
-            </div>
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="maintenance-list">
-            <div class="maintenance-item" *ngFor="let event of upcomingMaintenance">
-              <div class="event-date">{{ event.date | date:'MMM d' }}</div>
-              <div class="event-details">
-                <div class="event-title">{{ event.equipment }}</div>
-                <div class="event-type">{{ event.type }} Maintenance</div>
-              </div>
-              <div class="event-priority" [ngClass]="'priority-' + event.priority.toLowerCase()">
-                {{ event.priority }}
-              </div>
-            </div>
-            <div class="view-all-link">
-              <a routerLink="/maintenance">View all scheduled maintenance →</a>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-
-    <div class="grid-item">
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>
-            <div class="header-with-icon">
-              <mat-icon>warning_amber</mat-icon>
-              <span>Recent Anomalies</span>
-            </div>
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="anomaly-list">
-            <div class="anomaly-item" *ngFor="let anomaly of recentAnomalies">
-              <div class="anomaly-icon">
-                <mat-icon [ngClass]="'severity-' + anomaly.severity.toLowerCase()">
-                  {{ getSeverityIcon(anomaly.severity) }}
-                </mat-icon>
-              </div>
-              <div class="anomaly-details">
-                <div class="anomaly-title">{{ anomaly.equipment }} - {{ anomaly.sensor }}</div>
-                <div class="anomaly-time">{{ anomaly.time | date:'MMM d, h:mm a' }}</div>
-              </div>
-              <div class="anomaly-value">{{ anomaly.value }}{{ anomaly.unit }}</div>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </div>
-
-  <h2 class="section-title">Equipment Status</h2>
-
-  <div class="equipment-grid">
-    <mat-card class="equipment-card" *ngFor="let equipment of equipmentList"
-              [ngClass]="'status-' + getStatusClass(equipment.status)"
-              (click)="navigateToEquipment(equipment.id)">
-      <div class="equipment-icon">
-        <mat-icon>{{ getEquipmentIcon(equipment.type) }}</mat-icon>
+<!-- src/app/components/dashboard/dashboard.component.html -->
+<div class="dashboard-container" [class.dark-theme]="isDarkTheme" [class.fullscreen]="fullscreenMode">
+  <!-- Advanced Header -->
+  <header class="dashboard-header glass-morphism">
+    <div class="header-content">
+      <div class="title-section">
+        <h1 class="gradient-text animated-title">
+          <span class="logo-icon">⚡</span>
+          Industrial Equipment Intelligence Hub
+        </h1>
+        <p class="subtitle animated-subtitle">
+          Real-time Predictive Maintenance & Energy Optimization Platform
+        </p>
       </div>
-      <div class="equipment-details">
-        <h3 class="equipment-name">{{ equipment.name }}</h3>
-        <p class="equipment-type">{{ equipment.type }}</p>
-        <div class="equipment-stats">
-          <div class="stat">
-            <mat-icon class="small-icon">calendar_today</mat-icon>
-            <span>{{ equipment.installationDate | date:'MMM yyyy' }}</span>
-          </div>
-          <div class="stat">
-            <mat-icon class="small-icon">build</mat-icon>
-            <span>{{ equipment.lastMaintenanceDate | date:'MMM d' }}</span>
+
+      <div class="header-controls">
+        <!-- Site Selector with Live Status -->
+        <mat-form-field appearance="outline" class="site-selector glass-input">
+          <mat-label>
+            <mat-icon>business</mat-icon>
+            Select Facility
+          </mat-label>
+          <mat-select [(value)]="selectedSiteId" (selectionChange)="onSiteChange($event.value)">
+            <mat-option value="all" class="site-option">
+              <div class="site-option-content">
+                <mat-icon>dashboard</mat-icon>
+                <span class="site-name">All Facilities</span>
+                <span class="site-stats">{{ equipmentList.length }} Equipment</span>
+              </div>
+            </mat-option>
+            <mat-option *ngFor="let site of sites" [value]="site.id" class="site-option">
+              <div class="site-option-content">
+                <mat-icon [class]="'status-' + site.status">
+                  {{ site.status === 'online' ? 'check_circle' : site.status === 'offline' ? 'cancel' : 'warning' }}
+                </mat-icon>
+                <span class="site-name">{{ site.name }}</span>
+                <span class="site-location">{{ site.location }}</span>
+                <span class="site-stats">{{ site.equipmentCount }} Units</span>
+              </div>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- AI Assistant Toggle -->
+        <button mat-icon-button
+                class="ai-assistant-btn pulse-animation"
+                [color]="enableVoiceCommands ? 'accent' : 'default'"
+                (click)="toggleVoiceCommands()"
+                matTooltip="AI Voice Assistant">
+          <mat-icon>{{ isListening ? 'mic' : 'mic_off' }}</mat-icon>
+        </button>
+
+        <!-- View Mode Toggle -->
+        <mat-button-toggle-group [(value)]="dashboardLayout" class="view-toggle glass-morphism">
+          <mat-button-toggle value="grid" matTooltip="Grid Layout">
+            <mat-icon>grid_view</mat-icon>
+          </mat-button-toggle>
+          <mat-button-toggle value="freeform" matTooltip="Custom Layout">
+            <mat-icon>dashboard_customize</mat-icon>
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+
+        <!-- Performance Mode -->
+        <button mat-icon-button [matMenuTriggerFor]="performanceMenu" matTooltip="Performance Settings">
+          <mat-icon>speed</mat-icon>
+        </button>
+        <mat-menu #performanceMenu="matMenu">
+          <button mat-menu-item (click)="setPerformanceMode('high')">
+            <mat-icon>flash_on</mat-icon>
+            <span>High Performance</span>
+          </button>
+          <button mat-menu-item (click)="setPerformanceMode('balanced')">
+            <mat-icon>balance</mat-icon>
+            <span>Balanced</span>
+          </button>
+          <button mat-menu-item (click)="setPerformanceMode('low')">
+            <mat-icon>battery_saver</mat-icon>
+            <span>Power Saver</span>
+          </button>
+        </mat-menu>
+
+        <!-- Export Menu -->
+        <button mat-icon-button [matMenuTriggerFor]="exportMenu" matTooltip="Export Data">
+          <mat-icon>download</mat-icon>
+        </button>
+        <mat-menu #exportMenu="matMenu">
+          <button mat-menu-item (click)="exportDashboard('pdf')">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export as PDF Report</span>
+          </button>
+          <button mat-menu-item (click)="exportDashboard('excel')">
+            <mat-icon>table_chart</mat-icon>
+            <span>Export as Excel</span>
+          </button>
+          <button mat-menu-item (click)="exportDashboard('powerbi')">
+            <mat-icon>analytics</mat-icon>
+            <span>Export to Power BI</span>
+          </button>
+          <button mat-menu-item (click)="exportDashboard('api')">
+            <mat-icon>api</mat-icon>
+            <span>API Integration</span>
+          </button>
+        </mat-menu>
+
+        <!-- Advanced Features Toggle -->
+        <mat-slide-toggle [(ngModel)]="showAdvancedFeatures"
+                          matTooltip="Toggle Advanced Features"
+                          color="accent">
+          <mat-icon>science</mat-icon>
+        </mat-slide-toggle>
+
+        <!-- Fullscreen Toggle -->
+        <button mat-icon-button (click)="toggleFullscreen()" matTooltip="Toggle Fullscreen">
+          <mat-icon>{{ fullscreenMode ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+        </button>
+
+        <!-- Refresh & Last Updated -->
+        <div class="refresh-section">
+          <button mat-icon-button (click)="refreshDashboard()" matTooltip="Refresh Data" class="refresh-btn">
+            <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
+          </button>
+          <div class="last-updated">
+            <mat-icon>schedule</mat-icon>
+            <span>{{ lastUpdated | date:'short' }}</span>
+            <span class="update-status" [class.live]="connected">
+              {{ connected ? 'LIVE' : 'OFFLINE' }}
+            </span>
           </div>
         </div>
       </div>
-      <div class="equipment-status">
-        <app-status-indicator [status]="equipment.status" [showLabel]="false"></app-status-indicator>
+    </div>
+
+    <!-- AI Insights Bar -->
+    <div class="ai-insights-bar" *ngIf="aiInsights.length > 0" [@slideIn]>
+      <div class="insights-scroll">
+        <div class="insight-item"
+             *ngFor="let insight of aiInsights"
+             [class]="'severity-' + insight.severity"
+             (click)="viewInsightDetails(insight)">
+          <mat-icon>{{ getInsightIcon(insight.type) }}</mat-icon>
+          <span class="insight-text">{{ insight.title }}</span>
+          <span class="insight-confidence">{{ insight.confidence }}% confidence</span>
+        </div>
       </div>
+    </div>
+  </header>
+
+  <!-- KPI Cards with Advanced Metrics -->
+  <section class="kpi-section">
+    <app-kpi-cards [metrics]="metrics"
+                   [enableAnimations]="enableAnimations"
+                   [showTrends]="true"
+                   [compareWithPrevious]="true">
+    </app-kpi-cards>
+  </section>
+
+  <!-- Main Dashboard Content -->
+  <div class="dashboard-content" [class.edit-mode]="editMode">
+    <!-- 3D Facility Visualization -->
+    <mat-card class="facility-3d-card glass-morphism" *ngIf="enable3DView && showAdvancedFeatures">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>view_in_ar</mat-icon>
+          Digital Twin - 3D Facility View
+        </mat-card-title>
+        <div class="card-actions">
+          <button mat-icon-button (click)="reset3DView()" matTooltip="Reset View">
+            <mat-icon>restart_alt</mat-icon>
+          </button>
+          <button mat-icon-button (click)="toggle3DLabels()" matTooltip="Toggle Labels">
+            <mat-icon>label</mat-icon>
+          </button>
+          <button mat-icon-button [matMenuTriggerFor]="view3DMenu">
+            <mat-icon>visibility</mat-icon>
+          </button>
+          <mat-menu #view3DMenu="matMenu">
+            <mat-checkbox class="menu-checkbox" [(ngModel)]="show3DGrid">Show Grid</mat-checkbox>
+            <mat-checkbox class="menu-checkbox" [(ngModel)]="show3DAxis">Show Axis</mat-checkbox>
+            <mat-checkbox class="menu-checkbox" [(ngModel)]="show3DShadows">Shadows</mat-checkbox>
+            <mat-checkbox class="menu-checkbox" [(ngModel)]="show3DParticles">Particle Effects</mat-checkbox>
+          </mat-menu>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-container">
+          <canvas #facilityCanvas class="facility-canvas"></canvas>
+          <div class="canvas-overlay">
+            <div class="selected-equipment-info" *ngIf="selectedEquipment" [@fadeInOut]>
+              <h4>{{ selectedEquipment.name }}</h4>
+              <p>Type: {{ selectedEquipment.type }}</p>
+              <p>Status: <span [class]="'status-' + selectedEquipment.status">{{ selectedEquipment.status }}</span></p>
+              <p>Health Score: {{ selectedEquipment.healthScore }}%</p>
+              <button mat-raised-button color="primary" (click)="viewEquipmentDetails(selectedEquipment)">
+                View Details
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="view-controls">
+          <mat-slider min="0.5" max="3" step="0.1" [(value)]="zoom3D" (input)="updateZoom($event)">
+            <span>Zoom</span>
+          </mat-slider>
+          <mat-button-toggle-group [(value)]="view3DMode">
+            <mat-button-toggle value="orbit">Orbit</mat-button-toggle>
+            <mat-button-toggle value="fps">First Person</mat-button-toggle>
+            <mat-button-toggle value="top">Top View</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+      </mat-card-content>
     </mat-card>
+
+    <!-- Dynamic Widget Grid -->
+    <div class="widget-grid"
+         [class.grid-layout]="dashboardLayout === 'grid'"
+         [class.freeform-layout]="dashboardLayout === 'freeform'"
+         cdkDropList
+         (cdkDropListDropped)="onWidgetDrop($event)">
+
+      <!-- Equipment Status Overview Widget -->
+      <mat-card class="widget-card glass-morphism"
+                *ngIf="isWidgetVisible('equipment-status')"
+                [class.minimized]="isWidgetMinimized('equipment-status')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>dashboard</mat-icon>
+            Equipment Fleet Status
+          </mat-card-title>
+          <div class="widget-controls">
+            <button mat-icon-button (click)="minimizeWidget('equipment-status')">
+              <mat-icon>{{ isWidgetMinimized('equipment-status') ? 'expand_more' : 'expand_less' }}</mat-icon>
+            </button>
+            <button mat-icon-button [matMenuTriggerFor]="statusWidgetMenu">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #statusWidgetMenu="matMenu">
+              <button mat-menu-item (click)="configureWidget('equipment-status')">
+                <mat-icon>settings</mat-icon>
+                Configure
+              </button>
+              <button mat-menu-item (click)="refreshWidget('equipment-status')">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+              </button>
+              <button mat-menu-item (click)="exportWidget('equipment-status')">
+                <mat-icon>download</mat-icon>
+                Export
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="removeWidget('equipment-status')">
+                <mat-icon color="warn">delete</mat-icon>
+                Remove
+              </button>
+            </mat-menu>
+          </div>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('equipment-status')">
+          <div class="status-grid animated-grid">
+            <div class="status-card glass-card hover-scale"
+                 [class]="'status-' + status.key"
+                 *ngFor="let status of equipmentStatuses"
+                 (click)="navigateToEquipmentList(status.value)"
+                 [@cardAnimation]>
+              <div class="status-icon-wrapper">
+                <mat-icon class="status-icon animated-icon">{{ status.icon }}</mat-icon>
+                <div class="status-ring" [style.--progress]="status.percentage + '%'"></div>
+              </div>
+              <div class="status-content">
+                <div class="status-count animated-number">{{ status.count }}</div>
+                <div class="status-label">{{ status.label }}</div>
+                <div class="status-percentage">{{ status.percentage.toFixed(1) }}%</div>
+              </div>
+              <mat-progress-bar mode="determinate"
+                                [value]="status.percentage"
+                                [color]="status.color">
+              </mat-progress-bar>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Energy Flow Visualization Widget -->
+      <mat-card class="widget-card energy-flow-card glass-morphism"
+                *ngIf="isWidgetVisible('energy-flow') && showAdvancedFeatures"
+                [class.minimized]="isWidgetMinimized('energy-flow')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>bolt</mat-icon>
+            Real-time Energy Flow & Grid Analysis
+          </mat-card-title>
+          <div class="widget-controls">
+            <mat-button-toggle-group [(value)]="energyViewMode" class="view-toggle-mini">
+              <mat-button-toggle value="sankey">Flow</mat-button-toggle>
+              <mat-button-toggle value="treemap">Distribution</mat-button-toggle>
+              <mat-button-toggle value="network">Network</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('energy-flow')">
+          <app-energy-flow-visualization [energyData]="energyFlowData"
+                                         [viewMode]="energyViewMode"
+                                         [enableInteraction]="true"
+                                         [showOptimizationSuggestions]="true">
+          </app-energy-flow-visualization>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Predictive Analytics Widget -->
+      <mat-card class="widget-card analytics-card glass-morphism"
+                *ngIf="isWidgetVisible('predictive-analytics') && showAdvancedFeatures"
+                [class.minimized]="isWidgetMinimized('predictive-analytics')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>psychology</mat-icon>
+            AI-Powered Predictive Analytics
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('predictive-analytics')">
+          <app-predictive-analytics [equipmentData]="equipmentList"
+                                    [historicalData]="historicalData"
+                                    [enableMLModels]="true"
+                                    [showConfidenceIntervals]="true">
+          </app-predictive-analytics>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Real-time Alerts Widget -->
+      <mat-card class="widget-card alerts-card glass-morphism"
+                *ngIf="isWidgetVisible('alerts')"
+                [class.minimized]="isWidgetMinimized('alerts')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon matBadge="{{ activeAlerts.length }}" matBadgeColor="warn">notifications_active</mat-icon>
+            Active Alerts & Notifications
+          </mat-card-title>
+          <div class="widget-controls">
+            <button mat-button color="primary" (click)="viewAllAlerts()">View All</button>
+          </div>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('alerts')">
+          <app-realtime-alerts [alerts]="activeAlerts"
+                               [enableSoundAlerts]="true"
+                               [groupBySeverity]="true"
+                               [showTimeline]="true">
+          </app-realtime-alerts>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Equipment Health Matrix Widget -->
+      <mat-card class="widget-card health-matrix-card glass-morphism"
+                *ngIf="isWidgetVisible('health-matrix') && showAdvancedFeatures"
+                [class.minimized]="isWidgetMinimized('health-matrix')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>grid_on</mat-icon>
+            Equipment Health Matrix
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('health-matrix')">
+          <app-equipment-health-matrix [equipment]="equipmentList"
+                                       [viewMode]="'heatmap'"
+                                       [enableDrillDown]="true">
+          </app-equipment-health-matrix>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Weather Integration Widget -->
+      <mat-card class="widget-card weather-card glass-morphism"
+                *ngIf="isWidgetVisible('weather') && currentSite"
+                [class.minimized]="isWidgetMinimized('weather')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>wb_sunny</mat-icon>
+            Weather & Environmental Conditions
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('weather')">
+          <app-weather-integration [location]="currentSite.coordinates"
+                                   [showForecast]="true"
+                                   [showImpactAnalysis]="true">
+          </app-weather-integration>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Maintenance Timeline Widget -->
+      <mat-card class="widget-card timeline-card glass-morphism"
+                *ngIf="isWidgetVisible('maintenance-timeline')"
+                [class.minimized]="isWidgetMinimized('maintenance-timeline')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>timeline</mat-icon>
+            Maintenance Timeline & Scheduling
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('maintenance-timeline')">
+          <app-maintenance-timeline [events]="upcomingMaintenance"
+                                    [viewMode]="'gantt'"
+                                    [enableDragDrop]="true"
+                                    [showResourceAllocation]="true">
+          </app-maintenance-timeline>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Cost Analysis Widget -->
+      <mat-card class="widget-card cost-analysis-card glass-morphism"
+                *ngIf="isWidgetVisible('cost-analysis') && showAdvancedFeatures"
+                [class.minimized]="isWidgetMinimized('cost-analysis')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>attach_money</mat-icon>
+            Cost Analysis & ROI Tracking
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('cost-analysis')">
+          <app-cost-analysis [maintenanceCosts]="maintenanceCostData"
+                             [energyCosts]="energyCostData"
+                             [showProjections]="true"
+                             [compareScenarios]="true">
+          </app-cost-analysis>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Performance Metrics Widget -->
+      <mat-card class="widget-card performance-card glass-morphism"
+                *ngIf="isWidgetVisible('performance-metrics')"
+                [class.minimized]="isWidgetMinimized('performance-metrics')"
+                cdkDrag>
+        <mat-card-header class="widget-header" cdkDragHandle>
+          <mat-card-title>
+            <mat-icon>speed</mat-icon>
+            Performance Metrics & Benchmarking
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content *ngIf="!isWidgetMinimized('performance-metrics')">
+          <app-performance-metrics [metrics]="performanceMetrics"
+                                   [benchmarks]="industryBenchmarks"
+                                   [showTrends]="true">
+          </app-performance-metrics>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Add Widget Button -->
+      <div class="add-widget-card" *ngIf="editMode" (click)="openWidgetGallery()">
+        <mat-icon>add_circle_outline</mat-icon>
+        <span>Add Widget</span>
+      </div>
+    </div>
+
+    <!-- Equipment Categories Overview -->
+    <section class="categories-section" *ngIf="!editMode">
+      <h2 class="section-title">
+        <mat-icon>category</mat-icon>
+        Equipment Categories Performance
+      </h2>
+      <div class="categories-grid">
+        <mat-card class="category-card glass-morphism hover-lift"
+                  *ngFor="let category of equipmentCategories"
+                  [class]="'equipment-' + category.type"
+                  (click)="navigateToCategory(category)">
+          <div class="category-header">
+            <div class="category-icon-wrapper">
+              <mat-icon class="category-icon">{{ category.icon }}</mat-icon>
+              <div class="health-indicator" [style.--health]="category.health + '%'"></div>
+            </div>
+            <div class="category-info">
+              <h3 class="category-name">{{ category.name }}</h3>
+              <p class="category-count">{{ category.count }} units</p>
+            </div>
+          </div>
+          <div class="category-stats">
+            <div class="stat">
+              <span class="stat-label">Health</span>
+              <span class="stat-value">{{ category.health }}%</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Uptime</span>
+              <span class="stat-value">{{ category.uptime }}%</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Efficiency</span>
+              <span class="stat-value">{{ category.efficiency }}%</span>
+            </div>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="category.health"></mat-progress-bar>
+        </mat-card>
+      </div>
+    </section>
+
+    <!-- Site Map Overview -->
+    <mat-card class="site-map-card glass-morphism" *ngIf="sites.length > 1">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>map</mat-icon>
+          Global Facility Network
+        </mat-card-title>
+        <div class="card-actions">
+          <mat-button-toggle-group [(value)]="mapViewMode">
+            <mat-button-toggle value="status">Status</mat-button-toggle>
+            <mat-button-toggle value="energy">Energy</mat-button-toggle>
+            <mat-button-toggle value="alerts">Alerts</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <app-equipment-map [sites]="sites"
+                           [selectedSite]="currentSite"
+                           [viewMode]="mapViewMode"
+                           [showConnections]="true"
+                           [enable3D]="true">
+        </app-equipment-map>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Predictive Insights -->
+    <app-predictive-insights [showAdvancedModels]="showAdvancedFeatures"
+                             [enableInteractiveCharts]="true">
+    </app-predictive-insights>
   </div>
 
+  <!-- Floating Action Buttons -->
+  <div class="fab-container">
+    <button mat-fab
+            color="accent"
+            class="main-fab"
+            [matMenuTriggerFor]="fabMenu"
+            matTooltip="Quick Actions">
+      <mat-icon>add</mat-icon>
+    </button>
+    <mat-menu #fabMenu="matMenu" class="fab-menu">
+      <button mat-menu-item (click)="createMaintenanceTask()">
+        <mat-icon>build</mat-icon>
+        <span>Create Maintenance Task</span>
+      </button>
+      <button mat-menu-item (click)="scheduleInspection()">
+        <mat-icon>fact_check</mat-icon>
+        <span>Schedule Inspection</span>
+      </button>
+      <button mat-menu-item (click)="generateReport()">
+        <mat-icon>assessment</mat-icon>
+        <span>Generate Report</span>
+      </button>
+      <button mat-menu-item (click)="openSimulation()">
+        <mat-icon>science</mat-icon>
+        <span>Run Simulation</span>
+      </button>
+    </mat-menu>
+
+    <!-- Edit Mode Toggle -->
+    <button mat-mini-fab
+            color="primary"
+            class="edit-fab"
+            (click)="toggleEditMode()"
+            matTooltip="{{ editMode ? 'Exit Edit Mode' : 'Customize Dashboard' }}">
+      <mat-icon>{{ editMode ? 'done' : 'edit' }}</mat-icon>
+    </button>
+  </div>
+
+  <!-- Voice Command Overlay -->
+  <div class="voice-overlay" *ngIf="isListening" [@fadeInOut]>
+    <div class="voice-animation">
+      <div class="voice-wave"></div>
+      <div class="voice-wave"></div>
+      <div class="voice-wave"></div>
+    </div>
+    <p class="voice-text">{{ voiceTranscript || 'Listening...' }}</p>
+    <button mat-button (click)="stopListening()">Cancel</button>
+  </div>
+
+  <!-- Loading Overlay -->
   <app-loading-spinner *ngIf="isLoading"></app-loading-spinner>
+
+  <!-- Keyboard Shortcuts Help -->
+  <div class="shortcuts-help" *ngIf="showShortcuts" [@slideIn]>
+    <h3>Keyboard Shortcuts</h3>
+    <div class="shortcut-item" *ngFor="let shortcut of keyboardShortcuts">
+      <kbd>{{ shortcut.key }}</kbd>
+      <span>{{ shortcut.description }}</span>
+    </div>
+  </div>
 </div>

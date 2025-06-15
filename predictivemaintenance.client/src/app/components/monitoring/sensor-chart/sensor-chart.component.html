@@ -1,0 +1,209 @@
+<!-- src/app/components/monitoring/sensor-chart/sensor-chart.component.html -->
+<div class="chart-container">
+  <!-- Advanced Chart Controls Toolbar -->
+  <div class="chart-controls-toolbar">
+    <!-- Chart Type Selector -->
+    <mat-button-toggle-group [(value)]="chartConfig.type" (change)="onChartTypeChange($event.value)">
+      <mat-button-toggle value="2d" matTooltip="2D Line Chart">
+        <mat-icon>show_chart</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="3d" matTooltip="3D Surface">
+        <mat-icon>view_in_ar</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="heatmap" matTooltip="Correlation Heatmap">
+        <mat-icon>grid_on</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="contour" matTooltip="Contour Plot">
+        <mat-icon>terrain</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="scatter3d" matTooltip="3D Scatter">
+        <mat-icon>scatter_plot</mat-icon>
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <!-- Time Window Selection -->
+    <mat-button-toggle-group [(value)]="selectedTimeWindow" (change)="onTimeWindowChange()">
+      <mat-button-toggle value="1m">1m</mat-button-toggle>
+      <mat-button-toggle value="5m">5m</mat-button-toggle>
+      <mat-button-toggle value="10m">10m</mat-button-toggle>
+      <mat-button-toggle value="30m">30m</mat-button-toggle>
+      <mat-button-toggle value="1h">1h</mat-button-toggle>
+      <mat-button-toggle value="4h">4h</mat-button-toggle>
+      <mat-button-toggle value="12h">12h</mat-button-toggle>
+      <mat-button-toggle value="1d">1d</mat-button-toggle>
+      <mat-button-toggle value="1w">1w</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <!-- Advanced Controls -->
+    <button mat-icon-button [matMenuTriggerFor]="chartMenu" matTooltip="Chart Options">
+      <mat-icon>tune</mat-icon>
+    </button>
+
+    <mat-menu #chartMenu="matMenu" class="chart-options-menu">
+      <div class="menu-section">
+        <h4>Display Options</h4>
+        <mat-slide-toggle [(ngModel)]="chartConfig.showGrid">Show Grid</mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="chartConfig.showLegend">Show Legend</mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="chartConfig.showAnomalies">Show Anomalies</mat-slide-toggle>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="menu-section">
+        <h4>Interpolation</h4>
+        <mat-radio-group [(ngModel)]="chartConfig.interpolation">
+          <mat-radio-button value="linear">Linear</mat-radio-button>
+          <mat-radio-button value="spline">Spline</mat-radio-button>
+          <mat-radio-button value="step">Step</mat-radio-button>
+        </mat-radio-group>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="menu-section">
+        <h4>Color Scheme</h4>
+        <mat-select [(value)]="chartConfig.colorScheme" (selectionChange)="updateChart()">
+          <mat-option value="default">Default</mat-option>
+          <mat-option value="viridis">Viridis</mat-option>
+          <mat-option value="plasma">Plasma</mat-option>
+          <mat-option value="inferno">Inferno</mat-option>
+          <mat-option value="turbo">Turbo</mat-option>
+        </mat-select>
+      </div>
+    </mat-menu>
+
+    <!-- Export Menu -->
+    <button mat-icon-button [matMenuTriggerFor]="exportMenu" matTooltip="Export">
+      <mat-icon>download</mat-icon>
+    </button>
+
+    <mat-menu #exportMenu="matMenu">
+      <button mat-menu-item *ngFor="let format of exportFormats" (click)="exportChart(format)">
+        <mat-icon>{{ format === 'PNG' || format === 'SVG' ? 'image' : 'table_chart' }}</mat-icon>
+        <span>Export as {{ format }}</span>
+      </button>
+    </mat-menu>
+
+    <div class="spacer"></div>
+
+    <!-- Statistics Button -->
+    <button mat-icon-button [matMenuTriggerFor]="statsMenu" matTooltip="Statistics">
+      <mat-icon>analytics</mat-icon>
+    </button>
+
+    <mat-menu #statsMenu="matMenu" class="stats-menu">
+      <div class="stats-container">
+        <h4>Sensor Statistics</h4>
+        <div *ngFor="let sensor of sensorTypes" class="sensor-stats">
+          <h5>{{ sensor }}</h5>
+          <div class="stat-grid" *ngIf="statistics.get(sensor) as stats">
+            <div class="stat">
+              <span class="label">Min:</span>
+              <span class="value">{{ stats.min.toFixed(2) }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Max:</span>
+              <span class="value">{{ stats.max.toFixed(2) }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Mean:</span>
+              <span class="value">{{ stats.mean.toFixed(2) }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Std Dev:</span>
+              <span class="value">{{ stats.stdDev.toFixed(2) }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Anomaly Rate:</span>
+              <span class="value">{{ stats.anomalyRate.toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-menu>
+
+    <!-- Connection Status -->
+    <div class="connection-status" [class.connected]="connected" [class.disconnected]="!connected">
+      <span class="status-indicator"></span>
+      {{ connected ? 'Live' : 'Offline' }}
+    </div>
+  </div>
+
+  <!-- Date Range Picker (shown when not in live mode) -->
+  <div class="date-range-picker" *ngIf="!isLiveData">
+    <mat-form-field appearance="outline">
+      <mat-label>Start Date</mat-label>
+      <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate">
+      <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+      <mat-datepicker #startPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>End Date</mat-label>
+      <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate">
+      <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+      <mat-datepicker #endPicker></mat-datepicker>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="applyDateRange()">Apply</button>
+    <button mat-button (click)="isLiveData = true; updateTimeRange()">Back to Live</button>
+  </div>
+
+  <!-- Sensor Selection for Multi-Dimensional Charts -->
+  <div class="sensor-selection" *ngIf="chartConfig.type !== '2d'">
+    <mat-form-field appearance="outline">
+      <mat-label>Select Sensors</mat-label>
+      <mat-select [(value)]="selectedSensors" multiple>
+        <mat-option *ngFor="let sensor of sensorTypes" [value]="sensor">
+          <div class="sensor-option">
+            <span class="sensor-color" [style.background-color]="getSensorColor(sensor)"></span>
+            {{ sensor }}
+          </div>
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Main Chart Area -->
+  <div class="chart-wrapper">
+    <div #chart class="chart"></div>
+
+    <!-- Custom Legend for 2D Charts -->
+    <div class="chart-legend" *ngIf="chartInitialized && chartConfig.type === '2d' && sensorTypes.length > 0">
+      <div class="legend-item" *ngFor="let sensor of selectedSensors">
+        <mat-checkbox [checked]="true"
+                      (change)="toggleSensor(sensor)"
+                      [style.color]="getSensorColor(sensor)">
+          <span class="legend-color" [style.background-color]="getSensorColor(sensor)"></span>
+          {{ sensor }}
+        </mat-checkbox>
+      </div>
+
+      <div class="anomaly-legend" *ngIf="anomalyCount > 0 && chartConfig.showAnomalies">
+        <mat-icon class="anomaly-indicator">warning</mat-icon>
+        <span>{{ anomalyCount }} Anomalies Detected</span>
+      </div>
+    </div>
+
+    <!-- Correlation Info for Multi-Sensor Views -->
+    <div class="correlation-info" *ngIf="correlationData && chartConfig.type !== '2d'">
+      <h4>Sensor Correlations</h4>
+      <div class="correlation-grid">
+        <div *ngFor="let i of [0,1,2]" class="correlation-row">
+          <div *ngFor="let j of [0,1,2]" class="correlation-cell"
+               [class.strong]="Math.abs(correlationData.matrix[i]?.[j]) > 0.7"
+               [class.moderate]="Math.abs(correlationData.matrix[i]?.[j]) > 0.4">
+            <span class="sensors">{{ correlationData.sensors[i] }} ↔ {{ correlationData.sensors[j] }}</span>
+            <span class="value">{{ correlationData.matrix[i]?.[j]?.toFixed(2) || 'N/A' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div *ngIf="!chartInitialized || isLoading" class="chart-loading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>{{ isLoading ? 'Loading sensor data...' : 'Initializing advanced visualization...' }}</p>
+  </div>
+</div>

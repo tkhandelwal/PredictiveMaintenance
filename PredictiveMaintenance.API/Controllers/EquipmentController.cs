@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
+using PredictiveMaintenance.API.Services;
 using PredictiveMaintenance.API.Services.DataGeneration;
 using PredictiveMaintenance.API.Services.Monitoring;
 
@@ -12,40 +13,117 @@ namespace PredictiveMaintenance.API.Controllers
     public class EquipmentController : ControllerBase
     {
         private readonly IEquipmentMonitoringService _monitoringService;
+        private readonly IEquipmentService _equipmentService;
         private readonly IHubContext<MonitoringHub> _hubContext;
         private readonly ISyntheticDataGenerator _dataGenerator;
         private readonly ILogger<EquipmentController> _logger;
 
         public EquipmentController(
             IEquipmentMonitoringService monitoringService,
+            IEquipmentService equipmentService,
             IHubContext<MonitoringHub> hubContext,
             ISyntheticDataGenerator dataGenerator,
             ILogger<EquipmentController> logger)
         {
             _monitoringService = monitoringService;
+            _equipmentService = equipmentService;
             _hubContext = hubContext;
             _dataGenerator = dataGenerator;
             _logger = logger;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Equipment>>> GetAllEquipment()
+        public async Task<ActionResult<List<Equipment>>> GetAll()
         {
-            var equipment = await _monitoringService.GetAllEquipmentAsync();
-            return Ok(equipment);
+            try
+            {
+                var equipment = await _equipmentService.GetAllEquipmentAsync();
+                return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving equipment");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Equipment>> GetEquipment(int id)
+        public async Task<ActionResult<Equipment>> GetById(int id)
         {
-            var equipment = await _monitoringService.GetEquipmentByIdAsync(id);
-
-            if (equipment == null)
+            try
             {
-                return NotFound();
+                var equipment = await _equipmentService.GetEquipmentByIdAsync(id);
+                if (equipment == null)
+                {
+                    return NotFound($"Equipment with ID {id} not found");
+                }
+                return Ok(equipment);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error retrieving equipment {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
-            return Ok(equipment);
+        [HttpGet("site/{siteId}")]
+        public async Task<ActionResult<List<Equipment>>> GetBySite(string siteId)
+        {
+            try
+            {
+                var equipment = await _equipmentService.GetEquipmentBySiteAsync(siteId);
+                return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error retrieving equipment for site {siteId}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("critical")]
+        public async Task<ActionResult<List<Equipment>>> GetCritical()
+        {
+            try
+            {
+                var equipment = await _equipmentService.GetCriticalEquipmentAsync();
+                return Ok(equipment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving critical equipment");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("{id}/metrics")]
+        public async Task<ActionResult<Dictionary<string, object>>> GetMetrics(int id)
+        {
+            try
+            {
+                var metrics = await _equipmentService.GetEquipmentMetricsAsync(id);
+                return Ok(metrics);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error retrieving metrics for equipment {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("{id}/recommendations")]
+        public async Task<ActionResult<List<MaintenanceRecommendation>>> GetRecommendations(int id)
+        {
+            try
+            {
+                var recommendations = await _equipmentService.GetMaintenanceRecommendationsAsync(id);
+                return Ok(recommendations);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error retrieving recommendations for equipment {id}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [HttpGet("{id}/status")]
@@ -74,6 +152,59 @@ namespace PredictiveMaintenance.API.Controllers
 
             var readings = await _monitoringService.GetLatestReadingsForEquipmentAsync(id, limit);
             return Ok(readings);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Equipment>> Create(Equipment equipment)
+        {
+            try
+            {
+                var created = await _equipmentService.CreateEquipmentAsync(equipment);
+                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating equipment");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<Equipment>> Update(int id, Equipment equipment)
+        {
+            try
+            {
+                var updated = await _equipmentService.UpdateEquipmentAsync(id, equipment);
+                if (updated == null)
+                {
+                    return NotFound($"Equipment with ID {id} not found");
+                }
+                return Ok(updated);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating equipment {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> Delete(int id)
+        {
+            try
+            {
+                var deleted = await _equipmentService.DeleteEquipmentAsync(id);
+                if (!deleted)
+                {
+                    return NotFound($"Equipment with ID {id} not found");
+                }
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting equipment {id}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [HttpPost("simulate")]

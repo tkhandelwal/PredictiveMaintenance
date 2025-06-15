@@ -5,24 +5,153 @@ using PredictiveMaintenance.API.Services.DataGeneration;
 
 namespace PredictiveMaintenance.API.Services.MachineLearning
 {
-    public interface IPredictiveMaintenanceService
-    {
-        Task<List<MaintenanceEvent>> PredictMaintenanceScheduleAsync(int equipmentId);
-        Task<bool> DetectAnomalyAsync(SensorReading reading);
-    }
-
+    
     public class PredictiveMaintenanceService : IPredictiveMaintenanceService
     {
         private readonly ILogger<PredictiveMaintenanceService> _logger;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IAdvancedAnomalyDetectionService _anomalyService;
+        private readonly ApplicationDbContext _context;
+        private readonly Random _random = new();
 
         public PredictiveMaintenanceService(
             ILogger<PredictiveMaintenanceService> logger,
+            IAdvancedAnomalyDetectionService anomalyService,
+            ApplicationDbContext context,
             IServiceScopeFactory serviceScopeFactory)
         {
             _logger = logger;
+            _anomalyService = anomalyService;
             _serviceScopeFactory = serviceScopeFactory;
+            _context = context;
         }
+
+        public async Task<bool> DetectAnomalyAsync(SensorReading reading)
+        {
+            try
+            {
+                return await _anomalyService.DetectAnomalyAsync(reading);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error detecting anomaly");
+                return false;
+            }
+        }
+
+        public async Task<double> PredictRemainingUsefulLifeAsync(int equipmentId)
+        {
+            try
+            {
+                var equipment = await _context.Equipment
+                    .Include(e => e.OperationalData)
+                    .Include(e => e.MaintenanceHistory)
+                    .FirstOrDefaultAsync(e => e.Id == equipmentId);
+
+                if (equipment == null) return 0;
+
+                // Simple RUL calculation based on hours run and maintenance history
+                var designLife = GetDesignLifeHours(equipment.Type);
+                var hoursRun = equipment.OperationalData?.HoursRun ?? 0;
+                var maintenanceFactor = CalculateMaintenanceFactor(equipment);
+
+                var remainingHours = (designLife * maintenanceFactor) - hoursRun;
+                return Math.Max(0, remainingHours);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error predicting RUL for equipment {equipmentId}");
+                return 0;
+            }
+        }
+
+        public async Task<List<MaintenanceRecommendation>> GenerateMaintenanceRecommendationsAsync(int equipmentId)
+        {
+            var recommendations = new List<MaintenanceRecommendation>();
+
+            try
+            {
+                var equipment = await _context.Equipment
+                    .Include(e => e.OperationalData)
+                    .Include(e => e.ActiveAnomalies)
+                    .FirstOrDefaultAsync(e => e.Id == equipmentId);
+
+                if (equipment == null) return recommendations;
+
+                // Generate recommendations based on anomalies
+                foreach (var anomaly in equipment.ActiveAnomalies.Where(a => a.IsActive))
+                {
+                    recommendations.Add(new MaintenanceRecommendation
+                    {
+                        Title = $"Address {anomaly.Type} Anomaly",
+                        Description = anomaly.Description,
+                        Priority = (int)(anomaly.Severity * 5),
+                        EstimatedCost = EstimateMaintenanceCost(anomaly.Type),
+                        RecommendedDate = DateTime.UtcNow.AddDays(GetUrgencyDays(anomaly.Severity)),
+                        Type = "corrective"
+                    });
+                }
+
+                // Add predictive recommendations
+                var rul = await PredictRemainingUsefulLifeAsync(equipmentId);
+                if (rul < 2000) // Less than 2000 hours remaining
+                {
+                    recommendations.Add(new MaintenanceRecommendation
+                    {
+                        Title = "Schedule Major Overhaul",
+                        Description = $"Equipment has approximately {rul:F0} operating hours remaining",
+                        Priority = 4,
+                        EstimatedCost = GetOverhaulCost(equipment.Type),
+                        RecommendedDate = DateTime.UtcNow.AddDays(30),
+                        Type = "predictive"
+                    });
+                }
+
+                // Add preventive recommendations
+                if (equipment.LastMaintenanceDate.HasValue)
+                {
+                    var daysSinceLastMaintenance = (DateTime.UtcNow - equipment.LastMaintenanceDate.Value).Days;
+                    if (daysSinceLastMaintenance > GetMaintenanceInterval(equipment.Type))
+                    {
+                        recommendations.Add(new MaintenanceRecommendation
+                        {
+                            Title = "Routine Maintenance Due",
+                            Description = $"Last maintenance was {daysSinceLastMaintenance} days ago",
+                            Priority = 3,
+                            EstimatedCost = GetRoutineMaintenanceCost(equipment.Type),
+                            RecommendedDate = DateTime.UtcNow.AddDays(7),
+                            Type = "preventive"
+                        });
+                    }
+                }
+
+                return recommendations.OrderByDescending(r => r.Priority).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error generating recommendations for equipment {equipmentId}");
+                return recommendations;
+            }
+        }
+
+        public async Task<List<Anomaly>> GetActiveAnomaliesAsync(int equipmentId)
+        {
+            try
+            {
+                return await _context.Anomalies
+                    .Where(a => a.EquipmentId == equipmentId && a.ResolvedAt == null)
+                    .OrderByDescending(a => a.Severity)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting active anomalies for equipment {equipmentId}");
+                return new List<Anomaly>();
+            }
+        }
+
+
+
 
         public async Task<List<MaintenanceEvent>> PredictMaintenanceScheduleAsync(int equipmentId)
         {
@@ -295,6 +424,91 @@ namespace PredictiveMaintenance.API.Services.MachineLearning
         public static void SetSimulationMode(SimulationMode mode)
         {
             simulationMode = mode;
+        }
+
+        private double CalculateMaintenanceFactor(Equipment equipment)
+        {
+            var baseFactory = 1.0;
+
+            // Good maintenance extends life
+            if (equipment.MaintenanceHistory.Count > 0)
+            {
+                var avgInterval = equipment.MaintenanceHistory
+                    .OrderBy(m => m.Date)
+                    .Select((m, i) => i == 0 ? 0 : (m.Date - equipment.MaintenanceHistory.ElementAt(i - 1).Date).Days)
+                    .Where(days => days > 0)
+                    .DefaultIfEmpty(365)
+                    .Average();
+
+                if (avgInterval < 180) baseFactory = 1.2; // Well maintained
+                else if (avgInterval > 365) baseFactory = 0.8; // Poorly maintained
+            }
+
+            return baseFactory;
+        }
+
+        private double EstimateMaintenanceCost(string anomalyType)
+        {
+            return anomalyType.ToLower() switch
+            {
+                "vibration" => 2500,
+                "temperature" => 1500,
+                "electrical" => 3000,
+                _ => 2000
+            };
+        }
+
+        private int GetUrgencyDays(double severity)
+        {
+            if (severity > 0.8) return 1;
+            if (severity > 0.6) return 7;
+            if (severity > 0.4) return 14;
+            return 30;
+        }
+
+        private double GetOverhaulCost(EquipmentType type)
+        {
+            return type switch
+            {
+                EquipmentType.Motor => 15000,
+                EquipmentType.CentrifugalPump => 12000,
+                EquipmentType.Transformer => 50000,
+                _ => 10000
+            };
+        }
+
+        private double GetRoutineMaintenanceCost(EquipmentType type)
+        {
+            return type switch
+            {
+                EquipmentType.Motor => 500,
+                EquipmentType.CentrifugalPump => 400,
+                EquipmentType.Transformer => 1000,
+                _ => 300
+            };
+        }
+
+        private int GetMaintenanceInterval(EquipmentType type)
+        {
+            return type switch
+            {
+                EquipmentType.Motor => 180,
+                EquipmentType.CentrifugalPump => 90,
+                EquipmentType.Transformer => 365,
+                _ => 180
+            };
+        }
+
+        private double GetDesignLifeHours(EquipmentType type)
+        {
+            return type switch
+            {
+                EquipmentType.Motor => 100000,
+                EquipmentType.CentrifugalPump => 80000,
+                EquipmentType.Transformer => 200000,
+                EquipmentType.CircuitBreaker => 150000,
+                _ => 100000
+            };
         }
     }
 }

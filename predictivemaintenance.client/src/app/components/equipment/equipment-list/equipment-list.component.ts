@@ -71,15 +71,22 @@ export class EquipmentListComponent implements OnInit, OnDestroy {
     this.router.navigate(['/equipment', id]);
   }
 
-  getStatusIcon(status: MaintenanceStatus): string {
-    switch (status) {
-      case MaintenanceStatus.Operational:
+  getStatusIcon(status: MaintenanceStatus | string): string {
+    // Handle both string and enum values
+    const statusValue = typeof status === 'string' ? status : MaintenanceStatus[status];
+
+    switch (statusValue) {
+      case 'Operational':
+      case MaintenanceStatus.Operational.toString():
         return 'check_circle';
-      case MaintenanceStatus.Warning:
+      case 'Warning':
+      case MaintenanceStatus.Warning.toString():
         return 'warning';
-      case MaintenanceStatus.Critical:
+      case 'Critical':
+      case MaintenanceStatus.Critical.toString():
         return 'error';
-      case MaintenanceStatus.UnderMaintenance:
+      case 'UnderMaintenance':
+      case MaintenanceStatus.UnderMaintenance.toString():
         return 'build';
       default:
         return 'help';

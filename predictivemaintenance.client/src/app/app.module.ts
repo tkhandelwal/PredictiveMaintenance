@@ -32,8 +32,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 
 // Services
-import { ErrorInterceptor } from './interceptors/error.interceptor';
-import { LoadingInterceptor } from './interceptors/loading.interceptor';
+import { errorInterceptor } from './interceptors/error.interceptor';
+import { loadingInterceptor } from './interceptors/loading.interceptor';
 
 // Components
 import { AppComponent } from './app.component';
@@ -104,7 +104,7 @@ import { AppRoutingModule } from './app.routes';
     ),
 
     // HTTP Interceptors
-    { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: errorInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: LoadingInterceptor, multi: true }
   ],
   bootstrap: [AppComponent]

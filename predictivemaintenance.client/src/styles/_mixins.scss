@@ -1,0 +1,285 @@
+// src/styles/_mixins.scss
+@import 'variables';
+
+// Responsive breakpoint mixins
+@mixin xs {
+  @media (max-width: #{$breakpoint-xs}) {
+    @content;
+  }
+}
+
+@mixin sm {
+  @media (min-width: #{$breakpoint-sm}) {
+    @content;
+  }
+}
+
+@mixin md {
+  @media (min-width: #{$breakpoint-md}) {
+    @content;
+  }
+}
+
+@mixin lg {
+  @media (min-width: #{$breakpoint-lg}) {
+    @content;
+  }
+}
+
+@mixin xl {
+  @media (min-width: #{$breakpoint-xl}) {
+    @content;
+  }
+}
+
+@mixin xxl {
+  @media (min-width: #{$breakpoint-xxl}) {
+    @content;
+  }
+}
+
+// Glass morphism effect
+@mixin glass-morphism($blur: 10px, $opacity: 0.25) {
+  background: rgba(255, 255, 255, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+// Neumorphism effect
+@mixin neumorphism($bg: #f0f0f3) {
+  background: $bg;
+  box-shadow: 20px 20px 60px darken($bg, 15%), -20px -20px 60px lighten($bg, 10%);
+  border-radius: $radius-lg;
+}
+
+// Gradient text
+@mixin gradient-text($gradient) {
+  background: $gradient;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// Hover lift effect
+@mixin hover-lift($translateY: -8px, $scale: 1.02) {
+  transition: all $transition-base;
+
+  &:hover {
+    transform: translateY($translateY) scale($scale);
+    box-shadow: $shadow-xl;
+  }
+}
+
+// Pulse animation
+@mixin pulse-animation($scale: 1.05, $duration: 2s) {
+  animation: pulse $duration infinite;
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    50% {
+      transform: scale($scale);
+      opacity: 0.8;
+    }
+  }
+}
+
+// Glow effect
+@mixin glow($color, $size: 20px) {
+  box-shadow: 0 0 $size rgba($color, 0.5);
+  transition: box-shadow $transition-base;
+
+  &:hover {
+    box-shadow: 0 0 ($size * 1.5) rgba($color, 0.8);
+  }
+}
+
+// Card styles
+@mixin card($padding: $spacing-lg) {
+  @include glass-morphism();
+  border-radius: $radius-lg;
+  padding: $padding;
+  transition: all $transition-base;
+
+  &:hover {
+    @include hover-lift();
+  }
+}
+
+// Button styles
+@mixin button-gradient($gradient) {
+  background: $gradient;
+  color: white;
+  border: none;
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-lg;
+  font-weight: 600;
+  transition: all $transition-base;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+// Status colors
+@mixin status-color($status) {
+  @if $status == 'operational' {
+    background-color: $success-color;
+    color: white;
+  }
+  @else if $status == 'warning' {
+    background-color: $warning-color;
+    color: white;
+  }
+  @else if $status == 'critical' {
+    background-color: $danger-color;
+    color: white;
+  }
+  @else if $status == 'maintenance' {
+    background-color: $info-color;
+    color: white;
+  }
+}
+
+// Equipment type gradient
+@mixin equipment-gradient($type) {
+  $color: map-get($equipment-colors, $type);
+  background: linear-gradient(135deg, $color 0%, lighten($color, 10%) 100%);
+}
+
+// Dark theme support
+@mixin dark-theme {
+  .dark-theme & {
+    @content;
+  }
+}
+
+// Scrollbar styles
+@mixin custom-scrollbar($width: 10px, $track-color: #f1f5f9, $thumb-color: #cbd5e0) {
+  &::-webkit-scrollbar {
+    width: $width;
+    height: $width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $track-color;
+    border-radius: $width / 2;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $thumb-color;
+    border-radius: $width / 2;
+    transition: background $transition-fast;
+
+    &:hover {
+      background: darken($thumb-color, 10%);
+    }
+  }
+
+  @include dark-theme {
+    &::-webkit-scrollbar-track {
+      background: $dark-surface;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: $dark-surface-light;
+
+      &:hover {
+        background: lighten($dark-surface-light, 10%);
+      }
+    }
+  }
+}
+
+// Loading skeleton
+@mixin skeleton-loader {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: $radius-sm;
+
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @include dark-theme {
+    background: linear-gradient(90deg, $dark-surface 25%, $dark-surface-light 50%, $dark-surface 75%);
+  }
+}
+
+// Grid system
+@mixin grid($columns: 12, $gap: $spacing-md) {
+  display: grid;
+  grid-template-columns: repeat($columns, 1fr);
+  gap: $gap;
+
+  @include md {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+
+// Flex center
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Absolute center
+@mixin absolute-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+// Text truncate
+@mixin text-truncate($lines: 1) {
+  @if $lines == 1 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// Aspect ratio
+@mixin aspect-ratio($width, $height) {
+  position: relative;
+
+  &::before {
+    content: '';
+    display: block;
+    padding-top: ($height / $width) * 100%;
+  }
+
+  > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
