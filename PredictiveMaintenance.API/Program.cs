@@ -39,9 +39,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register services
 builder.Services.AddScoped<IPredictiveMaintenanceService, PredictiveMaintenanceService>();
 builder.Services.AddSingleton<IInfluxDbService, InMemoryInfluxDbService>();
+builder.Services.AddHostedService<EnhancedDataGenerationBackgroundService>();
+
 
 //builder.Services.AddSingleton<IInfluxDbService, InfluxDbService>();
-builder.Services.AddScoped<IEquipmentMonitoringService, EquipmentMonitoringService>();
+builder.Services.AddScoped<IEquipmentMonitoringService, EnhancedEquipmentMonitoringService>();
 builder.Services.AddScoped<IPredictiveMaintenanceService, PredictiveMaintenanceService>();
 builder.Services.AddScoped<IEquipmentService, EquipmentService>();
 

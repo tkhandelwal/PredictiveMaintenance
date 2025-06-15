@@ -17,7 +17,7 @@ namespace PredictiveMaintenance.API.Data
         public DbSet<OperationalData> OperationalData { get; set; }
         public DbSet<SensorData> SensorData { get; set; }
         public DbSet<SensorReading> SensorReadings { get; set; }
-        public DbSet<PredictiveMaintenance.API.Models.Document> Documents { get; set; }
+        public DbSet<EquipmentDocument> Documents { get; set; }
         public DbSet<Anomaly> Anomalies { get; set; }
 
         // Digital Twin related
