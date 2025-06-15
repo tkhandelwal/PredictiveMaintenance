@@ -1,528 +1,370 @@
-// src/app/workers/calculation.worker.ts
-/// <reference lib="webworker" />
+// calculation.worker.ts
+self.onmessage = function (e) {
+  const { type, data } = e.data;
 
-addEventListener('message', ({ data }) => {
-  const { type, payload } = data;
+  try {
+    let result;
 
-  switch (type) {
-    case 'FFT':
-      postMessage({ type: 'FFT_RESULT', result: performFFT(payload) });
-      break;
-
-    case 'STATISTICAL_ANALYSIS':
-      postMessage({ type: 'STATS_RESULT', result: performStatisticalAnalysis(payload) });
-      break;
-
-    case 'PREDICTIVE_MODEL':
-      postMessage({ type: 'PREDICTION_RESULT', result: runPredictiveModel(payload) });
-      break;
-
-    case 'OPTIMIZATION':
-      postMessage({ type: 'OPTIMIZATION_RESULT', result: performOptimization(payload) });
-      break;
-
-    default:
-      postMessage({ type: 'ERROR', error: 'Unknown calculation type' });
-  }
-});
-
-function performFFT(data: Float32Array): Float32Array {
-  const n = data.length;
-  const output = new Float32Array(n);
-
-  // Cooley-Tukey FFT algorithm
-  if (n & (n - 1)) {
-    // Not a power of 2, use DFT
-    return performDFT(data);
-  }
-
-  // Bit reversal
-  const reversed = new Float32Array(n);
-  let j = 0;
-  for (let i = 0; i < n; i++) {
-    reversed[j] = data[i];
-    let k = n >> 1;
-    while (k <= j) {
-      j -= k;
-      k >>= 1;
-    }
-    j += k;
-  }
-
-  // FFT computation
-  for (let len = 2; len <= n; len <<= 1) {
-    const halfLen = len >> 1;
-    const angleStep = -2 * Math.PI / len;
-
-    for (let i = 0; i < n; i += len) {
-      let angle = 0;
-      for (let j = 0; j < halfLen; j++) {
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const a = reversed[i + j];
-        const b = reversed[i + j + halfLen];
-
-        reversed[i + j] = a + cos * b;
-        reversed[i + j + halfLen] = a - cos * b;
-
-        angle += angleStep;
-      }
-    }
-  }
-
-  // Calculate magnitude
-  for (let i = 0; i < n / 2; i++) {
-    const real = reversed[i];
-    const imag = reversed[n - 1 - i];
-    output[i] = Math.sqrt(real * real + imag * imag);
-  }
-
-  return output;
-}
-
-function performDFT(data: Float32Array): Float32Array {
-  const n = data.length;
-  const output = new Float32Array(n);
-
-  for (let k = 0; k < n; k++) {
-    let sumReal = 0;
-    let sumImag = 0;
-
-    for (let t = 0; t < n; t++) {
-      const angle = -2 * Math.PI * k * t / n;
-      sumReal += data[t] * Math.cos(angle);
-      sumImag += data[t] * Math.sin(angle);
+    switch (type) {
+      case 'PREDICT':
+        result = performPrediction(data);
+        break;
+      case 'OPTIMIZE':
+        result = performOptimization(data);
+        break;
+      case 'ANALYZE':
+        result = performAnalysis(data);
+        break;
+      default:
+        result = { error: 'Unknown operation type' };
     }
 
-    output[k] = Math.sqrt(sumReal * sumReal + sumImag * sumImag);
+    self.postMessage({ success: true, result });
+  } catch (error) {
+    self.postMessage({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+};
+
+function performPrediction(data: any): any {
+  const { sensorData, model, timeHorizon } = data;
+
+  if (!sensorData || !model) {
+    throw new Error('Missing required prediction parameters');
   }
 
-  return output;
-}
-
-function performStatisticalAnalysis(data: any): any {
-  const { values, type } = data;
-
-  const stats = {
-    mean: calculateMean(values),
-    median: calculateMedian(values),
-    stdDev: calculateStdDev(values),
-    min: Math.min(...values),
-    max: Math.max(...values),
-    percentiles: calculatePercentiles(values),
-    outliers: detectOutliers(values),
-    trend: calculateTrend(values)
-  };
-
-  if (type === 'time-series') {
-    stats.autocorrelation = calculateAutocorrelation(values);
-    stats.seasonality = detectSeasonality(values);
+  // Neural network prediction
+  if (model.type === 'neural_network') {
+    return performNeuralNetworkPrediction(sensorData, model, timeHorizon);
   }
 
-  return stats;
-}
-
-function calculateMean(values: number[]): number {
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-function calculateMedian(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  } else {
-    return sorted[mid];
-  }
-}
-
-function calculateStdDev(values: number[]): number {
-  const mean = calculateMean(values);
-  const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
-  const variance = calculateMean(squaredDiffs);
-  return Math.sqrt(variance);
-}
-
-function calculatePercentiles(values: number[]): { [key: string]: number } {
-  const sorted = [...values].sort((a, b) => a - b);
-
-  return {
-    p5: sorted[Math.floor(sorted.length * 0.05)],
-    p25: sorted[Math.floor(sorted.length * 0.25)],
-    p50: sorted[Math.floor(sorted.length * 0.50)],
-    p75: sorted[Math.floor(sorted.length * 0.75)],
-    p95: sorted[Math.floor(sorted.length * 0.95)]
-  };
-}
-
-function detectOutliers(values: number[]): number[] {
-  const mean = calculateMean(values);
-  const stdDev = calculateStdDev(values);
-  const threshold = 3 * stdDev;
-
-  return values.filter(v => Math.abs(v - mean) > threshold);
-}
-
-function calculateTrend(values: number[]): { slope: number; intercept: number } {
-  const n = values.length;
-  const x = Array.from({ length: n }, (_, i) => i);
-
-  const sumX = x.reduce((a, b) => a + b, 0);
-  const sumY = values.reduce((a, b) => a + b, 0);
-  const sumXY = x.reduce((sum, xi, i) => sum + xi * values[i], 0);
-  const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-
-  return { slope, intercept };
-}
-
-function calculateAutocorrelation(values: number[]): number[] {
-  const mean = calculateMean(values);
-  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
-  const correlations: number[] = [];
-
-  for (let lag = 1; lag < Math.min(values.length / 4, 50); lag++) {
-    let covariance = 0;
-    for (let i = lag; i < values.length; i++) {
-      covariance += (values[i] - mean) * (values[i - lag] - mean);
-    }
-    covariance /= (values.length - lag);
-    correlations.push(covariance / variance);
+  // Time series prediction
+  if (model.type === 'time_series') {
+    return performTimeSeriesPrediction(sensorData, model, timeHorizon);
   }
 
-  return correlations;
+  throw new Error('Unsupported model type');
 }
 
-function detectSeasonality(values: number[]): { period: number; strength: number } | null {
-  const autocorr = calculateAutocorrelation(values);
+function performNeuralNetworkPrediction(sensorData: number[][], model: any, timeHorizon: number): any {
+  const { weights, biases, activation } = model;
 
-  // Find peaks in autocorrelation
-  const peaks: { lag: number; value: number }[] = [];
-  for (let i = 1; i < autocorr.length - 1; i++) {
-    if (autocorr[i] > autocorr[i - 1] && autocorr[i] > autocorr[i + 1] && autocorr[i] > 0.3) {
-      peaks.push({ lag: i + 1, value: autocorr[i] });
-    }
+  if (!weights || !biases) {
+    throw new Error('Invalid neural network model');
   }
 
-  if (peaks.length > 0) {
-    peaks.sort((a, b) => b.value - a.value);
-    return {
-      period: peaks[0].lag,
-      strength: peaks[0].value
-    };
-  }
+  const predictions = sensorData.map(sample => {
+    let current = [...sample];
 
-  return null;
-}
-
-function runPredictiveModel(data: any): any {
-  const { features, modelType, parameters } = data;
-
-  switch (modelType) {
-    case 'LINEAR_REGRESSION':
-      return linearRegression(features, parameters);
-
-    case 'EXPONENTIAL_SMOOTHING':
-      return exponentialSmoothing(features, parameters);
-
-    case 'ARIMA':
-      return arimaForecast(features, parameters);
-
-    case 'NEURAL_NETWORK':
-      return neuralNetworkPredict(features, parameters);
-
-    default:
-      return { error: 'Unknown model type' };
-  }
-}
-
-function linearRegression(features: number[][], parameters: any): any {
-  // Multiple linear regression implementation
-  const n = features.length;
-  const k = features[0].length;
-
-  // Construct X matrix with intercept
-  const X = features.map(row => [1, ...row]);
-
-  // Calculate coefficients using normal equation: β = (X'X)^(-1)X'y
-  // This is a simplified implementation
-  const coefficients = new Array(k + 1).fill(0);
-
-  // Return predictions
-  return {
-    coefficients,
-    predictions: features.map(row => {
-      let prediction = coefficients[0];
-      for (let i = 0; i < k; i++) {
-        prediction += coefficients[i + 1] * row[i];
-      }
-      return prediction;
-    })
-  };
-}
-
-function exponentialSmoothing(values: number[], parameters: any): any {
-  const { alpha = 0.3, beta = 0.1, gamma = 0.1, periods = 12 } = parameters;
-  const n = values.length;
-
-  // Holt-Winters triple exponential smoothing
-  const level = new Array(n);
-  const trend = new Array(n);
-  const seasonal = new Array(n);
-  const forecast = new Array(n);
-
-  // Initialize
-  level[0] = values[0];
-  trend[0] = 0;
-  for (let i = 0; i < periods; i++) {
-    seasonal[i] = values[i] - level[0];
-  }
-
-  // Apply smoothing
-  for (let i = 1; i < n; i++) {
-    const seasonIndex = i % periods;
-
-    if (i < periods) {
-      level[i] = alpha * (values[i] - seasonal[seasonIndex]) + (1 - alpha) * (level[i - 1] + trend[i - 1]);
-      trend[i] = beta * (level[i] - level[i - 1]) + (1 - beta) * trend[i - 1];
-      seasonal[i] = gamma * (values[i] - level[i]) + (1 - gamma) * seasonal[seasonIndex];
-    } else {
-      level[i] = alpha * (values[i] - seasonal[i - periods]) + (1 - alpha) * (level[i - 1] + trend[i - 1]);
-      trend[i] = beta * (level[i] - level[i - 1]) + (1 - beta) * trend[i - 1];
-      seasonal[i] = gamma * (values[i] - level[i]) + (1 - gamma) * seasonal[i - periods];
-    }
-
-    forecast[i] = level[i] + trend[i] + seasonal[i - periods + periods];
-  }
-
-  // Generate future forecasts
-  const futureForecast = [];
-  for (let h = 1; h <= 24; h++) {
-    const seasonIndex = (n - 1 + h) % periods;
-    futureForecast.push(level[n - 1] + h * trend[n - 1] + seasonal[n - periods + seasonIndex]);
-  }
-
-  return {
-    fitted: forecast,
-    forecast: futureForecast,
-    components: { level, trend, seasonal }
-  };
-}
-
-function arimaForecast(values: number[], parameters: any): any {
-  // Simplified ARIMA implementation
-  const { p = 1, d = 1, q = 1 } = parameters;
-
-  // Differencing
-  let diffValues = [...values];
-  for (let i = 0; i < d; i++) {
-    const newValues = [];
-    for (let j = 1; j < diffValues.length; j++) {
-      newValues.push(diffValues[j] - diffValues[j - 1]);
-    }
-    diffValues = newValues;
-  }
-
-  // AR and MA components would require more complex implementation
-  // This is a placeholder
-  return {
-    forecast: new Array(24).fill(values[values.length - 1]),
-    residuals: new Array(values.length).fill(0)
-  };
-}
-
-function neuralNetworkPredict(features: number[][], parameters: any): any {
-  // Simple feedforward neural network
-  const { weights, biases, activation = 'relu' } = parameters;
-
-  const predictions = features.map(input => {
-    let current = input;
-
-    // Forward propagation through layers
+    // Forward pass through each layer
     for (let layer = 0; layer < weights.length; layer++) {
       const W = weights[layer];
       const b = biases[layer];
+
+      if (!W || !b || W.length === 0 || b.length === 0) {
+        throw new Error(`Invalid weights or biases at layer ${layer}`);
+      }
+
       const next = new Array(W[0].length).fill(0);
 
-      // Matrix multiplication
+      // Matrix multiplication: next = current * W + b
       for (let i = 0; i < W[0].length; i++) {
         for (let j = 0; j < current.length; j++) {
-          next[i] += current[j] * W[j][i];
+          if (W[j] && W[j][i] !== undefined) {
+            next[i] += current[j] * W[j][i];
+          }
         }
         next[i] += b[i];
 
-        // Activation function
+        // Apply activation function
         if (activation === 'relu' && layer < weights.length - 1) {
           next[i] = Math.max(0, next[i]);
         } else if (activation === 'sigmoid') {
-          next[i] = 1 / (1 + Math.exp(-next[i]));
+          next[i] = 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, next[i])))); // Clamp to prevent overflow
+        } else if (activation === 'tanh') {
+          next[i] = Math.tanh(next[i]);
         }
       }
 
       current = next;
     }
 
-    return current[0];
+    return current[0]; // Assuming single output
   });
 
-  return { predictions };
+  return {
+    predictions,
+    confidence: calculatePredictionConfidence(predictions),
+    timeHorizon,
+    modelType: 'neural_network'
+  };
+}
+
+function performTimeSeriesPrediction(sensorData: number[][], model: any, timeHorizon: number): any {
+  // Simple moving average prediction
+  const windowSize = model.windowSize || 10;
+  const predictions: number[] = [];
+
+  for (let i = 0; i < sensorData.length; i++) {
+    const series = sensorData[i];
+    const startIdx = Math.max(0, series.length - windowSize);
+    const window = series.slice(startIdx);
+
+    const average = window.reduce((sum, val) => sum + val, 0) / window.length;
+    predictions.push(average);
+  }
+
+  return {
+    predictions,
+    confidence: calculatePredictionConfidence(predictions),
+    timeHorizon,
+    modelType: 'time_series'
+  };
+}
+
+function calculatePredictionConfidence(predictions: number[]): number {
+  if (predictions.length < 2) return 0.5;
+
+  const mean = predictions.reduce((sum, val) => sum + val, 0) / predictions.length;
+  const variance = predictions.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / predictions.length;
+  const stdDev = Math.sqrt(variance);
+
+  // Confidence decreases with higher variance
+  return Math.max(0.1, 1 - (stdDev / mean));
 }
 
 function performOptimization(data: any): any {
   const { type, objective, constraints, variables } = data;
 
+  if (!type || !objective || !variables) {
+    throw new Error('Missing required optimization parameters');
+  }
+
   switch (type) {
     case 'LINEAR_PROGRAMMING':
-      return linearProgramming(objective, constraints, variables);
-
+      return linearProgramming(objective, constraints || [], variables);
     case 'GENETIC_ALGORITHM':
-      return geneticAlgorithm(objective, constraints, variables);
-
+      return geneticAlgorithm(objective, constraints || [], variables);
     case 'SIMULATED_ANNEALING':
-      return simulatedAnnealing(objective, constraints, variables);
-
+      return simulatedAnnealing(objective, constraints || [], variables);
     default:
-      return { error: 'Unknown optimization type' };
+      throw new Error('Unknown optimization type');
   }
 }
 
-function linearProgramming(objective: number[], constraints: any[], variables: any): any {
-  // Simplex algorithm implementation would go here
-  // This is a placeholder
+function linearProgramming(objective: number[], constraints: any[], variables: any[]): any {
+  // Simplified linear programming implementation
+  // In a real scenario, you'd use a proper simplex algorithm
+
+  const numVars = variables.length;
+  const solution = new Array(numVars).fill(0);
+
+  // Basic feasible solution
+  for (let i = 0; i < numVars; i++) {
+    const variable = variables[i];
+    solution[i] = variable.min || 0;
+  }
+
+  // Calculate objective value
+  const objectiveValue = solution.reduce((sum, val, idx) => sum + val * objective[idx], 0);
+
   return {
-    solution: new Array(variables.length).fill(0),
-    objectiveValue: 0,
-    feasible: true
+    solution,
+    objectiveValue,
+    feasible: true,
+    iterations: 1,
+    method: 'linear_programming'
   };
 }
 
-function geneticAlgorithm(objective: Function, constraints: Function[], variables: any): any {
+function geneticAlgorithm(objective: Function, constraints: Function[], variables: any[]): any {
   const populationSize = 100;
   const generations = 1000;
   const mutationRate = 0.01;
   const crossoverRate = 0.7;
+  const elitismRate = 0.1;
+
+  if (!variables || variables.length === 0) {
+    throw new Error('Variables array is required for genetic algorithm');
+  }
 
   // Initialize population
   let population = Array.from({ length: populationSize }, () =>
-    variables.map((v: any) => v.min + Math.random() * (v.max - v.min))
+    variables.map((v: any) => v.min + Math.random() * ((v.max || 100) - (v.min || 0)))
   );
+
+  let bestSolution = [...population[0]];
+  let bestFitness = -Infinity;
 
   for (let gen = 0; gen < generations; gen++) {
     // Evaluate fitness
     const fitness = population.map(individual => {
-      const constraintViolation = constraints.reduce((sum, c) =>
-        sum + Math.max(0, c(individual)), 0
-      );
-      return constraintViolation === 0 ? objective(individual) : -Infinity;
+      try {
+        // Check constraints
+        const constraintViolation = constraints.reduce((sum, constraint) => {
+          try {
+            return sum + Math.max(0, constraint(individual));
+          } catch {
+            return sum + 1000; // Heavy penalty for constraint evaluation errors
+          }
+        }, 0);
+
+        if (constraintViolation > 0) {
+          return -constraintViolation; // Negative fitness for infeasible solutions
+        }
+
+        return objective(individual);
+      } catch {
+        return -Infinity; // Invalid individual
+      }
     });
 
-    // Selection
-    const selected = tournamentSelection(population, fitness);
-
-    // Crossover and mutation
-    const offspring = [];
-    for (let i = 0; i < populationSize; i += 2) {
-      let child1 = [...selected[i]];
-      let child2 = [...selected[i + 1]];
-
-      if (Math.random() < crossoverRate) {
-        [child1, child2] = crossover(child1, child2);
-      }
-
-      child1 = mutate(child1, mutationRate, variables);
-      child2 = mutate(child2, mutationRate, variables);
-
-      offspring.push(child1, child2);
+    // Find best individual
+    const currentBestIdx = fitness.indexOf(Math.max(...fitness));
+    if (fitness[currentBestIdx] > bestFitness) {
+      bestFitness = fitness[currentBestIdx];
+      bestSolution = [...population[currentBestIdx]];
     }
 
-    population = offspring;
+    // Selection, crossover, and mutation
+    const newPopulation: number[][] = [];
+
+    // Elitism - keep best individuals
+    const eliteCount = Math.floor(populationSize * elitismRate);
+    const sortedIndices = fitness
+      .map((fit, idx) => ({ fitness: fit, index: idx }))
+      .sort((a, b) => b.fitness - a.fitness)
+      .slice(0, eliteCount)
+      .map(item => item.index);
+
+    sortedIndices.forEach(idx => {
+      newPopulation.push([...population[idx]]);
+    });
+
+    // Generate new individuals
+    while (newPopulation.length < populationSize) {
+      const parent1 = tournamentSelection(population, fitness);
+      const parent2 = tournamentSelection(population, fitness);
+
+      let offspring1 = [...parent1];
+      let offspring2 = [...parent2];
+
+      // Crossover
+      if (Math.random() < crossoverRate) {
+        [offspring1, offspring2] = crossover(parent1, parent2);
+      }
+
+      // Mutation
+      offspring1 = mutate(offspring1, variables, mutationRate);
+      offspring2 = mutate(offspring2, variables, mutationRate);
+
+      newPopulation.push(offspring1);
+      if (newPopulation.length < populationSize) {
+        newPopulation.push(offspring2);
+      }
+    }
+
+    population = newPopulation;
+
+    // Early termination check
+    if (gen % 100 === 0 && bestFitness > -1e-6) {
+      break;
+    }
   }
 
-  // Return best solution
-  const finalFitness = population.map(individual => objective(individual));
-  const bestIndex = finalFitness.indexOf(Math.max(...finalFitness));
-
   return {
-    solution: population[bestIndex],
-    objectiveValue: finalFitness[bestIndex]
+    solution: bestSolution,
+    objectiveValue: bestFitness,
+    feasible: bestFitness > -Infinity,
+    generations: generations,
+    method: 'genetic_algorithm'
   };
 }
 
-function tournamentSelection(population: number[][], fitness: number[]): number[][] {
-  const selected = [];
-  const tournamentSize = 3;
+function tournamentSelection(population: number[][], fitness: number[], tournamentSize: number = 3): number[] {
+  let bestIdx = Math.floor(Math.random() * population.length);
+  let bestFitness = fitness[bestIdx];
 
-  for (let i = 0; i < population.length; i++) {
-    const tournament = Array.from({ length: tournamentSize }, () =>
-      Math.floor(Math.random() * population.length)
-    );
-
-    const winner = tournament.reduce((best, idx) =>
-      fitness[idx] > fitness[best] ? idx : best
-    );
-
-    selected.push([...population[winner]]);
+  for (let i = 1; i < tournamentSize; i++) {
+    const idx = Math.floor(Math.random() * population.length);
+    if (fitness[idx] > bestFitness) {
+      bestFitness = fitness[idx];
+      bestIdx = idx;
+    }
   }
 
-  return selected;
+  return [...population[bestIdx]];
 }
 
 function crossover(parent1: number[], parent2: number[]): [number[], number[]] {
-  const point = Math.floor(Math.random() * parent1.length);
-  const child1 = [...parent1.slice(0, point), ...parent2.slice(point)];
-  const child2 = [...parent2.slice(0, point), ...parent1.slice(point)];
-  return [child1, child2];
+  const crossoverPoint = Math.floor(Math.random() * parent1.length);
+
+  const offspring1 = [
+    ...parent1.slice(0, crossoverPoint),
+    ...parent2.slice(crossoverPoint)
+  ];
+
+  const offspring2 = [
+    ...parent2.slice(0, crossoverPoint),
+    ...parent1.slice(crossoverPoint)
+  ];
+
+  return [offspring1, offspring2];
 }
 
-function mutate(individual: number[], rate: number, variables: any[]): number[] {
-  return individual.map((gene, i) => {
-    if (Math.random() < rate) {
-      const range = variables[i].max - variables[i].min;
-      return gene + (Math.random() - 0.5) * range * 0.1;
+function mutate(individual: number[], variables: any[], mutationRate: number): number[] {
+  return individual.map((gene, idx) => {
+    if (Math.random() < mutationRate) {
+      const variable = variables[idx];
+      const min = variable.min || 0;
+      const max = variable.max || 100;
+      return min + Math.random() * (max - min);
     }
     return gene;
   });
 }
 
-function simulatedAnnealing(objective: Function, constraints: Function[], variables: any): any {
-  let current = variables.map((v: any) => v.min + Math.random() * (v.max - v.min));
-  let currentCost = objective(current);
-
-  let best = [...current];
-  let bestCost = currentCost;
-
-  let temperature = 1000;
+function simulatedAnnealing(objective: Function, constraints: Function[], variables: any[]): any {
+  const maxIterations = 10000;
+  const initialTemp = 1000;
   const coolingRate = 0.995;
-  const minTemperature = 0.001;
+  const minTemp = 0.01;
 
-  while (temperature > minTemperature) {
-    // Generate neighbor
-    const neighbor = current.map((val, i) => {
-      const range = variables[i].max - variables[i].min;
-      const delta = (Math.random() - 0.5) * range * 0.1;
-      return Math.max(variables[i].min, Math.min(variables[i].max, val + delta));
-    });
+  // Generate initial solution
+  let currentSolution = variables.map((v: any) =>
+    (v.min || 0) + Math.random() * ((v.max || 100) - (v.min || 0))
+  );
 
-    // Check constraints
-    const constraintViolation = constraints.reduce((sum, c) =>
-      sum + Math.max(0, c(neighbor)), 0
-    );
+  let currentObjective = evaluateWithConstraints(currentSolution, objective, constraints);
+  let bestSolution = [...currentSolution];
+  let bestObjective = currentObjective;
+  let temperature = initialTemp;
 
-    if (constraintViolation === 0) {
-      const neighborCost = objective(neighbor);
-      const delta = neighborCost - currentCost;
+  for (let iter = 0; iter < maxIterations && temperature > minTemp; iter++) {
+    // Generate neighbor solution
+    const neighbor = [...currentSolution];
+    const randomIdx = Math.floor(Math.random() * neighbor.length);
+    const variable = variables[randomIdx];
+    const min = variable.min || 0;
+    const max = variable.max || 100;
 
-      if (delta < 0 || Math.random() < Math.exp(-delta / temperature)) {
-        current = neighbor;
-        currentCost = neighborCost;
+    // Small random change
+    const change = (Math.random() - 0.5) * (max - min) * 0.1;
+    neighbor[randomIdx] = Math.max(min, Math.min(max, neighbor[randomIdx] + change));
 
-        if (currentCost < bestCost) {
-          best = [...current];
-          bestCost = currentCost;
-        }
+    const neighborObjective = evaluateWithConstraints(neighbor, objective, constraints);
+
+    // Accept or reject the neighbor
+    const delta = neighborObjective - currentObjective;
+    if (delta > 0 || Math.random() < Math.exp(delta / temperature)) {
+      currentSolution = neighbor;
+      currentObjective = neighborObjective;
+
+      if (currentObjective > bestObjective) {
+        bestSolution = [...currentSolution];
+        bestObjective = currentObjective;
       }
     }
 
@@ -530,7 +372,227 @@ function simulatedAnnealing(objective: Function, constraints: Function[], variab
   }
 
   return {
-    solution: best,
-    objectiveValue: bestCost
+    solution: bestSolution,
+    objectiveValue: bestObjective,
+    feasible: bestObjective > -Infinity,
+    iterations: maxIterations,
+    method: 'simulated_annealing'
   };
+}
+
+function evaluateWithConstraints(solution: number[], objective: Function, constraints: Function[]): number {
+  try {
+    // Check constraints
+    const constraintViolation = constraints.reduce((sum, constraint) => {
+      try {
+        return sum + Math.max(0, constraint(solution));
+      } catch {
+        return sum + 1000;
+      }
+    }, 0);
+
+    if (constraintViolation > 0) {
+      return -constraintViolation;
+    }
+
+    return objective(solution);
+  } catch {
+    return -Infinity;
+  }
+}
+
+function performAnalysis(data: any): any {
+  const { type, dataset, parameters } = data;
+
+  switch (type) {
+    case 'STATISTICAL':
+      return performStatisticalAnalysis(dataset, parameters);
+    case 'CORRELATION':
+      return performCorrelationAnalysis(dataset, parameters);
+    case 'TREND':
+      return performTrendAnalysis(dataset, parameters);
+    default:
+      throw new Error('Unknown analysis type');
+  }
+}
+
+function performStatisticalAnalysis(dataset: number[][], parameters: any): any {
+  if (!dataset || dataset.length === 0) {
+    throw new Error('Dataset is required for statistical analysis');
+  }
+
+  const results = dataset.map(series => {
+    const n = series.length;
+    const mean = series.reduce((sum, val) => sum + val, 0) / n;
+    const variance = series.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+    const stdDev = Math.sqrt(variance);
+
+    const sorted = [...series].sort((a, b) => a - b);
+    const median = n % 2 === 0
+      ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+      : sorted[Math.floor(n / 2)];
+
+    return {
+      mean,
+      median,
+      variance,
+      stdDev,
+      min: Math.min(...series),
+      max: Math.max(...series),
+      count: n
+    };
+  });
+
+  return {
+    type: 'statistical',
+    results,
+    summary: {
+      totalSeries: dataset.length,
+      avgMean: results.reduce((sum, r) => sum + r.mean, 0) / results.length
+    }
+  };
+}
+
+function performCorrelationAnalysis(dataset: number[][], parameters: any): any {
+  if (!dataset || dataset.length < 2) {
+    throw new Error('At least 2 data series required for correlation analysis');
+  }
+
+  const correlationMatrix: number[][] = [];
+
+  for (let i = 0; i < dataset.length; i++) {
+    correlationMatrix[i] = [];
+    for (let j = 0; j < dataset.length; j++) {
+      if (i === j) {
+        correlationMatrix[i][j] = 1;
+      } else {
+        correlationMatrix[i][j] = calculateCorrelation(dataset[i], dataset[j]);
+      }
+    }
+  }
+
+  return {
+    type: 'correlation',
+    correlationMatrix,
+    strongCorrelations: findStrongCorrelations(correlationMatrix, 0.7)
+  };
+}
+
+function calculateCorrelation(series1: number[], series2: number[]): number {
+  const n = Math.min(series1.length, series2.length);
+  const mean1 = series1.slice(0, n).reduce((sum, val) => sum + val, 0) / n;
+  const mean2 = series2.slice(0, n).reduce((sum, val) => sum + val, 0) / n;
+
+  let numerator = 0;
+  let sum1Sq = 0;
+  let sum2Sq = 0;
+
+  for (let i = 0; i < n; i++) {
+    const diff1 = series1[i] - mean1;
+    const diff2 = series2[i] - mean2;
+
+    numerator += diff1 * diff2;
+    sum1Sq += diff1 * diff1;
+    sum2Sq += diff2 * diff2;
+  }
+
+  const denominator = Math.sqrt(sum1Sq * sum2Sq);
+  return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function findStrongCorrelations(matrix: number[][], threshold: number): Array<{ i: number, j: number, correlation: number }> {
+  const strong: Array<{ i: number, j: number, correlation: number }> = [];
+
+  for (let i = 0; i < matrix.length; i++) {
+    for (let j = i + 1; j < matrix[i].length; j++) {
+      if (Math.abs(matrix[i][j]) >= threshold) {
+        strong.push({ i, j, correlation: matrix[i][j] });
+      }
+    }
+  }
+
+  return strong;
+}
+
+function performTrendAnalysis(dataset: number[][], parameters: any): any {
+  const results = dataset.map(series => {
+    const trend = calculateLinearTrend(series);
+    const seasonality = detectSeasonality(series);
+
+    return {
+      trend,
+      seasonality,
+      volatility: calculateVolatility(series)
+    };
+  });
+
+  return {
+    type: 'trend',
+    results
+  };
+}
+
+function calculateLinearTrend(series: number[]): { slope: number, intercept: number, r2: number } {
+  const n = series.length;
+  const x = Array.from({ length: n }, (_, i) => i);
+
+  const sumX = x.reduce((sum, val) => sum + val, 0);
+  const sumY = series.reduce((sum, val) => sum + val, 0);
+  const sumXY = x.reduce((sum, val, i) => sum + val * series[i], 0);
+  const sumXX = x.reduce((sum, val) => sum + val * val, 0);
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  // Calculate R²
+  const meanY = sumY / n;
+  const ssTotal = series.reduce((sum, val) => sum + Math.pow(val - meanY, 2), 0);
+  const ssRes = series.reduce((sum, val, i) => sum + Math.pow(val - (slope * i + intercept), 2), 0);
+  const r2 = 1 - (ssRes / ssTotal);
+
+  return { slope, intercept, r2 };
+}
+
+function detectSeasonality(series: number[]): { detected: boolean, period?: number } {
+  // Simple autocorrelation-based seasonality detection
+  const maxLag = Math.min(series.length / 4, 50);
+  let bestCorrelation = 0;
+  let bestPeriod = 0;
+
+  for (let lag = 2; lag <= maxLag; lag++) {
+    const correlation = calculateAutocorrelation(series, lag);
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation;
+      bestPeriod = lag;
+    }
+  }
+
+  return {
+    detected: bestCorrelation > 0.3,
+    period: bestCorrelation > 0.3 ? bestPeriod : undefined
+  };
+}
+
+function calculateAutocorrelation(series: number[], lag: number): number {
+  const n = series.length - lag;
+  const series1 = series.slice(0, n);
+  const series2 = series.slice(lag, lag + n);
+
+  return calculateCorrelation(series1, series2);
+}
+
+function calculateVolatility(series: number[]): number {
+  const returns = [];
+  for (let i = 1; i < series.length; i++) {
+    if (series[i - 1] !== 0) {
+      returns.push((series[i] - series[i - 1]) / series[i - 1]);
+    }
+  }
+
+  if (returns.length === 0) return 0;
+
+  const meanReturn = returns.reduce((sum, val) => sum + val, 0) / returns.length;
+  const variance = returns.reduce((sum, val) => sum + Math.pow(val - meanReturn, 2), 0) / returns.length;
+
+  return Math.sqrt(variance);
 }

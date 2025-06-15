@@ -10,6 +10,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+// Use alias to avoid ambiguity
+using ModelsSensorData = PredictiveMaintenance.API.Models.SensorData;
+using MLSensorData = PredictiveMaintenance.API.Services.MachineLearning.SensorData;
+
 namespace PredictiveMaintenance.API.Services
 {
     public interface IEquipmentService
@@ -183,7 +187,7 @@ namespace PredictiveMaintenance.API.Services
 
                 if (existingEquipment == null)
                 {
-                    throw new NotFoundException($"Equipment {id} not found");
+                    throw new PredictiveMaintenance.API.Exceptions.NotFoundException($"Equipment {id} not found");
                 }
 
                 // Update properties
@@ -256,8 +260,8 @@ namespace PredictiveMaintenance.API.Services
             try
             {
                 var criticalEquipment = await _context.Equipment
-                    .Where(e => e.Status == MaintenanceStatus.Critical ||
-                               e.Status == MaintenanceStatus.Warning ||
+                    .Where(e => e.Status == EquipmentStatus.Critical ||
+                               e.Status == EquipmentStatus.Warning ||
                                e.Criticality == "critical" ||
                                e.Criticality == "high")
                     .Include(e => e.Specifications)
@@ -285,7 +289,7 @@ namespace PredictiveMaintenance.API.Services
                 var equipment = await GetEquipmentByIdAsync(id);
                 if (equipment == null)
                 {
-                    throw new NotFoundException($"Equipment {id} not found");
+                    throw new PredictiveMaintenance.API.Exceptions.NotFoundException($"Equipment {id} not found");
                 }
 
                 var metrics = new Dictionary<string, object>();
@@ -353,7 +357,7 @@ namespace PredictiveMaintenance.API.Services
                 var equipment = await GetEquipmentByIdAsync(id);
                 if (equipment == null)
                 {
-                    throw new NotFoundException($"Equipment {id} not found");
+                    throw new PredictiveMaintenance.API.Exceptions.NotFoundException($"Equipment {id} not found");
                 }
 
                 var recommendations = new List<MaintenanceRecommendation>();
@@ -380,8 +384,21 @@ namespace PredictiveMaintenance.API.Services
 
         private async Task EnrichEquipmentDataAsync(Equipment equipment)
         {
-            // Get latest sensor readings
-            equipment.SensorData = await _sensorService.GetLatestSensorDataAsync(equipment.Id, 10);
+            // Get latest sensor readings from the service
+            var latestReadings = await _sensorService.GetLatestSensorDataAsync(equipment.Id, 5);
+
+            // Convert to SensorData model
+            equipment.SensorData = latestReadings.Select(r => new ModelsSensorData
+            {
+                EquipmentId = r.EquipmentId,
+                SensorId = $"SENSOR_{r.EquipmentId}_{r.SensorType}",
+                Type = r.SensorType,
+                Value = r.Value,
+                Unit = GetUnitForSensorType(r.SensorType),
+                Timestamp = r.Timestamp,
+                Quality = "good",
+                AnomalyScore = r.IsAnomaly ? 1.0 : 0.0
+            }).ToList();
 
             // Update real-time operational metrics
             if (equipment.OperationalData != null)
@@ -404,13 +421,13 @@ namespace PredictiveMaintenance.API.Services
             // Factor in equipment status
             switch (equipment.Status)
             {
-                case MaintenanceStatus.Critical:
+                case EquipmentStatus.Critical:
                     healthScore -= 40;
                     break;
-                case MaintenanceStatus.Warning:
+                case EquipmentStatus.Warning:
                     healthScore -= 20;
                     break;
-                case MaintenanceStatus.UnderMaintenance:
+                case EquipmentStatus.UnderMaintenance:
                     healthScore -= 10;
                     break;
             }
@@ -497,10 +514,10 @@ namespace PredictiveMaintenance.API.Services
             // Status weight
             switch (equipment.Status)
             {
-                case MaintenanceStatus.Critical:
+                case EquipmentStatus.Critical:
                     score += 100;
                     break;
-                case MaintenanceStatus.Warning:
+                case EquipmentStatus.Warning:
                     score += 50;
                     break;
             }
@@ -536,7 +553,7 @@ namespace PredictiveMaintenance.API.Services
             double totalCost = 0;
             if (equipment.MaintenanceHistory != null)
             {
-                totalCost = equipment.MaintenanceHistory.Sum(m => m.Cost);
+                totalCost = equipment.MaintenanceHistory.Sum(m => (double)m.Cost);  // Cast decimal to double
             }
             metrics["totalCost"] = totalCost;
 
@@ -621,7 +638,6 @@ namespace PredictiveMaintenance.API.Services
                 {
                     recommendations.Add(new MaintenanceRecommendation
                     {
-                        Id = Guid.NewGuid().ToString(),
                         Type = "Scheduled Maintenance",
                         Description = $"Routine maintenance overdue by {daysSinceLastMaintenance - recommendedInterval} days",
                         Priority = MaintenancePriority.High,
@@ -641,7 +657,6 @@ namespace PredictiveMaintenance.API.Services
                 {
                     recommendations.Add(new MaintenanceRecommendation
                     {
-                        Id = Guid.NewGuid().ToString(),
                         Type = "Bearing Replacement",
                         Description = "Motor has exceeded recommended bearing life",
                         Priority = MaintenancePriority.Medium,
@@ -662,7 +677,6 @@ namespace PredictiveMaintenance.API.Services
                 {
                     recommendations.Add(new MaintenanceRecommendation
                     {
-                        Id = Guid.NewGuid().ToString(),
                         Type = "Performance Optimization",
                         Description = $"OEE below target: {equipment.OperationalData.OEE:F1}%",
                         Priority = MaintenancePriority.Medium,
@@ -689,7 +703,6 @@ namespace PredictiveMaintenance.API.Services
                 {
                     recommendations.Add(new MaintenanceRecommendation
                     {
-                        Id = Guid.NewGuid().ToString(),
                         Type = "Cooling System Check",
                         Description = $"Temperature exceeding normal range: {tempSensor.Value:F1}°C",
                         Priority = MaintenancePriority.High,
@@ -712,7 +725,6 @@ namespace PredictiveMaintenance.API.Services
                 {
                     recommendations.Add(new MaintenanceRecommendation
                     {
-                        Id = Guid.NewGuid().ToString(),
                         Type = "Vibration Analysis",
                         Description = $"Abnormal vibration detected: {vibrationSensor.Value:F2} mm/s",
                         Priority = MaintenancePriority.High,
@@ -784,8 +796,8 @@ namespace PredictiveMaintenance.API.Services
             }
         }
 
-        // Helper methods
-        private double GetSensorValue(List<SensorData> sensorData, string sensorType)
+        // Helper methods - Fixed to use Models.SensorData
+        private double GetSensorValue(ICollection<ModelsSensorData> sensorData, string sensorType)
         {
             return sensorData?.Where(s => s.Type == sensorType)
                             .OrderByDescending(s => s.Timestamp)
@@ -1052,6 +1064,24 @@ namespace PredictiveMaintenance.API.Services
             existing.Performance = updated.Performance;
             existing.Quality = updated.Quality;
             existing.OEE = CalculateOEE(existing);
+        }
+
+        // Helper method for getting unit for sensor type
+        private string GetUnitForSensorType(string sensorType)
+        {
+            return sensorType.ToLower() switch
+            {
+                "temperature" => "°C",
+                "vibration" => "mm/s",
+                "current" => "A",
+                "voltage" => "V",
+                "power" => "kW",
+                "pressure" => "bar",
+                "flow" => "m³/h",
+                "speed" or "rpm" => "RPM",
+                "oil_quality" => "%",
+                _ => ""
+            };
         }
     }
 }

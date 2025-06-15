@@ -1,5 +1,4 @@
-﻿// Data/ApplicationDbContext.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PredictiveMaintenance.API.Models;
 
 namespace PredictiveMaintenance.API.Data
@@ -11,14 +10,25 @@ namespace PredictiveMaintenance.API.Data
         {
         }
 
+        // Core entities
         public DbSet<Equipment> Equipment { get; set; }
         public DbSet<MaintenanceEvent> MaintenanceEvents { get; set; }
         public DbSet<EquipmentSpecifications> EquipmentSpecifications { get; set; }
         public DbSet<OperationalData> OperationalData { get; set; }
         public DbSet<SensorData> SensorData { get; set; }
-        public DbSet<Document> Documents { get; set; }
+        public DbSet<SensorReading> SensorReadings { get; set; }
+        public DbSet<PredictiveMaintenance.API.Models.Document> Documents { get; set; }
         public DbSet<Anomaly> Anomalies { get; set; }
+
+        // Digital Twin related
         public DbSet<DigitalTwinConfig> DigitalTwinConfigs { get; set; }
+        public DbSet<ThermalModel> ThermalModels { get; set; }
+        public DbSet<ElectricalModel> ElectricalModels { get; set; }
+        public DbSet<HarmonicProfile> HarmonicProfiles { get; set; }
+        public DbSet<HarmonicData> HarmonicData { get; set; }
+
+        // Maintenance related
+        public DbSet<MaintenanceRecommendation> MaintenanceRecommendations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,99 +50,26 @@ namespace PredictiveMaintenance.API.Data
                 .WithOne(d => d.Equipment)
                 .HasForeignKey<DigitalTwinConfig>(d => d.EquipmentId);
 
-            // Seed data
-            modelBuilder.Entity<Equipment>().HasData(
-                new Equipment
-                {
-                    Id = 1,
-                    Name = "Pump 1",
-                    Type = EquipmentType.CentrifugalPump,
-                    SiteId = "SITE001",
-                    Location = "Building A - Floor 1",
-                    InstallationDate = DateTime.UtcNow.AddYears(-2),
-                    LastMaintenanceDate = DateTime.UtcNow.AddMonths(-3),
-                    Status = MaintenanceStatus.Operational,
-                    Manufacturer = "PumpCo",
-                    Model = "CP-2000",
-                    SerialNumber = "CP2000-001",
-                    Criticality = "high",
-                    HealthScore = 85.5
-                },
-                new Equipment
-                {
-                    Id = 2,
-                    Name = "Motor 1",
-                    Type = EquipmentType.Motor,
-                    SiteId = "SITE001",
-                    Location = "Building A - Floor 1",
-                    InstallationDate = DateTime.UtcNow.AddYears(-1),
-                    LastMaintenanceDate = DateTime.UtcNow.AddMonths(-1),
-                    Status = MaintenanceStatus.Operational,
-                    Manufacturer = "MotorTech",
-                    Model = "MT-500HP",
-                    SerialNumber = "MT500-2023-001",
-                    Criticality = "critical",
-                    HealthScore = 92.0
-                }
-            );
+            // Configure enum conversions
+            modelBuilder.Entity<Equipment>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
 
-            // Seed operational data
-            modelBuilder.Entity<OperationalData>().HasData(
-                new OperationalData
-                {
-                    Id = 1,
-                    EquipmentId = 1,
-                    HoursRun = 12500,
-                    StartStopCycles = 3200,
-                    EnergyConsumed = 450000,
-                    CurrentLoad = 75,
-                    AverageLoad = 68,
-                    PeakLoad = 95,
-                    Availability = 98.5,
-                    Performance = 94.2,
-                    Quality = 99.1
-                },
-                new OperationalData
-                {
-                    Id = 2,
-                    EquipmentId = 2,
-                    HoursRun = 8760,
-                    StartStopCycles = 1200,
-                    EnergyConsumed = 850000,
-                    CurrentLoad = 82,
-                    AverageLoad = 78,
-                    PeakLoad = 100,
-                    Availability = 99.2,
-                    Performance = 96.5,
-                    Quality = 99.8
-                }
-            );
+            modelBuilder.Entity<Equipment>()
+                .Property(e => e.Status)
+                .HasConversion<string>();
 
-            // Seed specifications
-            modelBuilder.Entity<EquipmentSpecifications>().HasData(
-                new EquipmentSpecifications
-                {
-                    Id = 1,
-                    EquipmentId = 1,
-                    RatedPower = "75 kW",
-                    RatedVoltage = "480V",
-                    RatedCurrent = "150A",
-                    Frequency = "60Hz"
-                },
-                new EquipmentSpecifications
-                {
-                    Id = 2,
-                    EquipmentId = 2,
-                    RatedPower = "500 HP",
-                    RatedVoltage = "4160V",
-                    RatedCurrent = "85A",
-                    Frequency = "60Hz",
-                    HP = 500,
-                    RPM = "1800",
-                    Efficiency = "95.5%",
-                    PowerFactor = "0.92"
-                }
-            );
+            modelBuilder.Entity<MaintenanceEvent>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<MaintenanceEvent>()
+                .Property(e => e.Priority)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<MaintenanceEvent>()
+                .Property(e => e.Status)
+                .HasConversion<string>();
         }
     }
 }

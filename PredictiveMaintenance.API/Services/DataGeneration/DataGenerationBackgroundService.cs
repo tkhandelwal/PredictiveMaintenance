@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿// Services/DataGeneration/DataGenerationBackgroundService.cs
+using Microsoft.AspNetCore.SignalR;
 using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
 using PredictiveMaintenance.API.Services.Monitoring;
@@ -14,7 +15,7 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
         private readonly TimeSpan _interval = TimeSpan.FromSeconds(3); // More frequent updates
 
         // Dictionary to track the last known status of each equipment
-        private readonly Dictionary<int, MaintenanceStatus> _lastKnownStatus = new Dictionary<int, MaintenanceStatus>();
+        private readonly Dictionary<int, EquipmentStatus> _lastKnownStatus = new Dictionary<int, EquipmentStatus>();
 
         // Use object lock to coordinate data generation
         private readonly object _lock = new object();

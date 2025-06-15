@@ -1,4 +1,5 @@
 ﻿// Services/EnergyOptimizationService.cs
+using Microsoft.EntityFrameworkCore;
 using PredictiveMaintenance.API.Data;
 
 namespace PredictiveMaintenance.API.Services

@@ -1,27 +1,26 @@
-import { HttpRequest, HttpHandlerFn, HttpErrorResponse } from '@angular/common/http';
+import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { throwError, catchError } from 'rxjs';
-import { ErrorHandlingService } from '../services/error-handling.service';
+import { catchError, throwError } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
-export const errorInterceptor = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
-  const errorService = inject(ErrorHandlingService);
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const snackBar = inject(MatSnackBar);
 
   return next(req).pipe(
-    catchError((error: HttpErrorResponse) => {
-      let errorMessage = 'An unknown error occurred';
+    catchError((error) => {
+      let errorMessage = 'An error occurred';
 
       if (error.error instanceof ErrorEvent) {
-        // Client-side error
-        errorMessage = `Client error: ${error.error.message}`;
+        errorMessage = error.error.message;
       } else {
-        // Server-side error
-        errorMessage = `Server error: ${error.status} - ${error.statusText}`;
-        if (error.error?.message) {
-          errorMessage += ` - ${error.error.message}`;
-        }
+        errorMessage = `Error ${error.status}: ${error.message}`;
       }
 
-      errorService.handleError(error, errorMessage);
+      snackBar.open(errorMessage, 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+
       return throwError(() => error);
     })
   );

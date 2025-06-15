@@ -1,158 +1,115 @@
-﻿using PredictiveMaintenance.API.Models;
-using PredictiveMaintenance.API.Services.MachineLearning;
+﻿using MediatR;
+using PredictiveMaintenance.API.Events;
+using System.Collections.Concurrent;
 
 namespace PredictiveMaintenance.API.Services.Monitoring
 {
-    public interface IEquipmentMonitoringService
-    {
-        Task<List<Equipment>> GetAllEquipmentAsync();
-        Task<Equipment> GetEquipmentByIdAsync(int id);
-        Task<MaintenanceStatus> GetEquipmentStatusAsync(int id);
-        Task<List<SensorReading>> GetLatestReadingsForEquipmentAsync(int id, int limit = 50);
-    }
-
     public class EquipmentMonitoringService : IEquipmentMonitoringService
     {
+        private readonly IMediator _mediator;
         private readonly ILogger<EquipmentMonitoringService> _logger;
-        private readonly IInfluxDbService _influxDbService;
-        private readonly IPredictiveMaintenanceService _maintenanceService;
+        private readonly ConcurrentDictionary<int, bool> _monitoringStatus;
 
-        // In a real application, this would come from a database
-        private readonly List<Equipment> _equipment = new List<Equipment>
+        // Threshold configurations (you can move these to appsettings.json)
+        private readonly Dictionary<string, (double min, double max)> _normalRanges = new()
         {
-            new Equipment
-            {
-                Id = 1,
-                Name = "Pump 1",
-                Type = "Centrifugal Pump",
-                InstallationDate = DateTime.UtcNow.AddYears(-2),
-                LastMaintenanceDate = DateTime.UtcNow.AddMonths(-3),
-                Status = MaintenanceStatus.Operational
-            },
-            new Equipment
-            {
-                Id = 2,
-                Name = "Motor 1",
-                Type = "Electric Motor",
-                InstallationDate = DateTime.UtcNow.AddYears(-1),
-                LastMaintenanceDate = DateTime.UtcNow.AddMonths(-1),
-                Status = MaintenanceStatus.Operational
-            },
-            new Equipment
-            {
-                Id = 3,
-                Name = "Compressor 1",
-                Type = "Air Compressor",
-                InstallationDate = DateTime.UtcNow.AddYears(-3),
-                LastMaintenanceDate = DateTime.UtcNow.AddMonths(-6),
-                Status = MaintenanceStatus.Warning
-            },
-            new Equipment
-            {
-                Id = 4,
-                Name = "Fan 1",
-                Type = "Industrial Fan",
-                InstallationDate = DateTime.UtcNow.AddMonths(-11),
-                LastMaintenanceDate = DateTime.UtcNow.AddMonths(-2),
-                Status = MaintenanceStatus.Operational
-            },
+            ["Temperature"] = (20.0, 80.0),
+            ["Vibration"] = (0.0, 5.0),
+            ["Pressure"] = (1.0, 10.0),
+            ["RPM"] = (1000.0, 3000.0)
         };
 
         public EquipmentMonitoringService(
-            ILogger<EquipmentMonitoringService> logger,
-            IInfluxDbService influxDbService,
-            IPredictiveMaintenanceService maintenanceService)
+            IMediator mediator,
+            ILogger<EquipmentMonitoringService> logger)
         {
+            _mediator = mediator;
             _logger = logger;
-            _influxDbService = influxDbService;
-            _maintenanceService = maintenanceService;
+            _monitoringStatus = new ConcurrentDictionary<int, bool>();
         }
 
-        public Task<List<Equipment>> GetAllEquipmentAsync()
+        public Task StartMonitoringAsync(int equipmentId)
         {
-            return Task.FromResult(_equipment);
+            _monitoringStatus[equipmentId] = true;
+            _logger.LogInformation($"Started monitoring equipment {equipmentId}");
+            return Task.CompletedTask;
         }
 
-        public Task<Equipment> GetEquipmentByIdAsync(int id)
+        public Task StopMonitoringAsync(int equipmentId)
         {
-            var equipment = _equipment.Find(e => e.Id == id);
+            _monitoringStatus[equipmentId] = false;
+            _logger.LogInformation($"Stopped monitoring equipment {equipmentId}");
+            return Task.CompletedTask;
+        }
 
-            if (equipment == null)
+        public Task<bool> IsMonitoringAsync(int equipmentId)
+        {
+            return Task.FromResult(_monitoringStatus.ContainsKey(equipmentId) && _monitoringStatus[equipmentId]);
+        }
+
+        public async Task ProcessSensorDataAsync(int equipmentId, Dictionary<string, double> sensorData)
+        {
+            if (!await IsMonitoringAsync(equipmentId))
             {
-                throw new KeyNotFoundException($"Equipment with ID {id} not found");
+                _logger.LogWarning($"Equipment {equipmentId} is not being monitored");
+                return;
             }
 
-            return Task.FromResult(equipment);
+            // Check for anomalies
+            var anomalies = DetectAnomalies(sensorData);
+
+            if (anomalies.Any())
+            {
+                foreach (var anomaly in anomalies)
+                {
+                    _logger.LogWarning($"Anomaly detected for equipment {equipmentId}: {anomaly.Key} = {anomaly.Value}");
+
+                    // Publish anomaly event
+                    await _mediator.Publish(new EquipmentAnomalyDetectedEvent
+                    {
+                        EquipmentId = equipmentId,
+                        EquipmentName = $"Equipment-{equipmentId}", // You'd fetch this from DB
+                        AnomalyScore = CalculateAnomalyScore(anomaly.Key, anomaly.Value),
+                        SensorReadings = sensorData,
+                        AnomalyType = anomaly.Key
+                    });
+                }
+            }
         }
 
-        public async Task<MaintenanceStatus> GetEquipmentStatusAsync(int id)
+        private Dictionary<string, double> DetectAnomalies(Dictionary<string, double> sensorData)
         {
-            try
+            var anomalies = new Dictionary<string, double>();
+
+            foreach (var reading in sensorData)
             {
-                // Get latest readings
-                var readings = await GetLatestReadingsForEquipmentAsync(id, 10);
-
-                if (readings.Count == 0)
+                if (_normalRanges.ContainsKey(reading.Key))
                 {
-                    return MaintenanceStatus.Operational;
-                }
-
-                // Check for anomalies
-                int anomalyCount = 0;
-                foreach (var reading in readings)
-                {
-                    bool isAnomaly = await _maintenanceService.DetectAnomalyAsync(reading);
-                    if (isAnomaly)
+                    var (min, max) = _normalRanges[reading.Key];
+                    if (reading.Value < min || reading.Value > max)
                     {
-                        anomalyCount++;
+                        anomalies[reading.Key] = reading.Value;
                     }
                 }
-
-                // Update status based on anomaly percentage
-                double anomalyPercentage = (double)anomalyCount / readings.Count;
-
-                if (anomalyPercentage > 0.5)
-                {
-                    return MaintenanceStatus.Critical;
-                }
-                else if (anomalyPercentage > 0.2)
-                {
-                    return MaintenanceStatus.Warning;
-                }
-                else
-                {
-                    return MaintenanceStatus.Operational;
-                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error getting status for equipment {id}");
-                return MaintenanceStatus.Operational;
-            }
+
+            return anomalies;
         }
 
-        public class NotFoundException : Exception
+        private double CalculateAnomalyScore(string sensorType, double value)
         {
-            public NotFoundException(string message) : base(message) { }
-        }
+            if (!_normalRanges.ContainsKey(sensorType))
+                return 0.5;
 
-        public async Task<List<SensorReading>> GetLatestReadingsForEquipmentAsync(int id, int limit = 50)
-        {
-            try
-            {
-                var now = DateTime.UtcNow;
-                var from = now.AddDays(-1);
-                var readings = await _influxDbService.GetReadingsForEquipmentAsync(id, from, now);
+            var (min, max) = _normalRanges[sensorType];
+            var range = max - min;
 
-                return readings.Count > limit
-                    ? readings.OrderByDescending(r => r.Timestamp).Take(limit).ToList()
-                    : readings;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error getting latest readings for equipment {id}");
-                return new List<SensorReading>();
-            }
+            if (value < min)
+                return Math.Min(1.0, (min - value) / range);
+            else if (value > max)
+                return Math.Min(1.0, (value - max) / range);
+
+            return 0.0;
         }
     }
 }

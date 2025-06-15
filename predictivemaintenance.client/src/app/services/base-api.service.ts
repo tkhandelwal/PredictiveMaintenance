@@ -7,10 +7,11 @@ import { ErrorHandlingService } from './error-handling.service';
 import { environment } from '../../environments/environment';
 
 // Type-safe HTTP options interface
-interface HttpGetOptions {
+interface HttpOptions {
   params?: HttpParams;
-  observe: 'body';
+  observe?: 'body';
   responseType?: 'json';
+  headers?: any;
   [key: string]: any;
 }
 
@@ -31,7 +32,7 @@ export abstract class BaseApiService {
   /**
    * Get all items
    */
-  protected getAll<T>(path: string = '', options: any = {}): Observable<T[]> {
+  protected getAll<T>(path: string = '', options: HttpOptions = {}): Observable<T[]> {
     const url = this.buildUrl(path);
     const cacheKey = this.createCacheKey('get-all', path, options);
     const cachedData = this.cacheService.get<T[]>(cacheKey);
@@ -40,12 +41,7 @@ export abstract class BaseApiService {
       return of(cachedData);
     }
 
-    const httpOptions: HttpGetOptions = {
-      ...options,
-      observe: 'body'
-    };
-
-    return this.http.get<T[]>(url, httpOptions).pipe(
+    return this.http.get<T[]>(url, options).pipe(
       timeout(this.defaultTimeout),
       retry({ count: 1, delay: 1000 }),
       tap(data => this.cacheService.set(cacheKey, data, 60)), // cache for 1 minute
@@ -56,7 +52,7 @@ export abstract class BaseApiService {
   /**
    * Get item by ID
    */
-  protected getById<T>(id: number | string, path: string = '', options: any = {}): Observable<T> {
+  protected getById<T>(id: number | string, path: string = '', options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(`${path}/${id}`);
     const cacheKey = this.createCacheKey('get-by-id', `${path}/${id}`, options);
     const cachedData = this.cacheService.get<T>(cacheKey);
@@ -65,12 +61,7 @@ export abstract class BaseApiService {
       return of(cachedData);
     }
 
-    const httpOptions: HttpGetOptions = {
-      ...options,
-      observe: 'body'
-    };
-
-    return this.http.get<T>(url, httpOptions).pipe(
+    return this.http.get<T>(url, options).pipe(
       timeout(this.defaultTimeout),
       retry({ count: 1, delay: 1000 }),
       tap(data => this.cacheService.set(cacheKey, data, 60)), // cache for 1 minute
@@ -81,99 +72,69 @@ export abstract class BaseApiService {
   /**
    * Create new item
    */
-  protected create<T>(data: any, path: string = '', options: any = {}): Observable<T> {
+  protected create<T>(data: any, path: string = '', options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(path);
 
-    const httpOptions: HttpGetOptions = {
-      ...options,
-      observe: 'body'
-    };
-
-    return this.http.post<T>(url, data, httpOptions).pipe(
+    return this.http.post<T>(url, data, options).pipe(
       timeout(this.defaultTimeout),
       tap(() => this.invalidateCache()),
-      catchError(err => this.handleError(err, `Error creating item in ${url}`))
+      catchError(err => this.handleError(err, `Error creating item at ${url}`))
     );
   }
 
   /**
    * Update existing item
    */
-  protected update<T>(id: number | string, data: any, path: string = '', options: any = {}): Observable<T> {
+  protected update<T>(id: number | string, data: any, path: string = '', options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(`${path}/${id}`);
 
-    const httpOptions: HttpGetOptions = {
-      ...options,
-      observe: 'body'
-    };
-
-    return this.http.put<T>(url, data, httpOptions).pipe(
+    return this.http.put<T>(url, data, options).pipe(
       timeout(this.defaultTimeout),
       tap(() => this.invalidateCache()),
-      catchError(err => this.handleError(err, `Error updating item ${id} in ${url}`))
+      catchError(err => this.handleError(err, `Error updating item ${id} at ${url}`))
     );
   }
 
   /**
    * Delete item
    */
-  protected delete<T>(id: number | string, path: string = '', options: any = {}): Observable<T> {
+  protected delete<T>(id: number | string, path: string = '', options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(`${path}/${id}`);
 
-    const httpOptions: HttpGetOptions = {
-      ...options,
-      observe: 'body'
-    };
-
-    return this.http.delete<T>(url, httpOptions).pipe(
+    return this.http.delete<T>(url, options).pipe(
       timeout(this.defaultTimeout),
       tap(() => this.invalidateCache()),
-      catchError(err => this.handleError(err, `Error deleting item ${id} from ${url}`))
+      catchError(err => this.handleError(err, `Error deleting item ${id} at ${url}`))
     );
   }
 
   /**
-   * Execute custom GET request
+   * Generic GET request
    */
-  protected get<T>(path: string, params?: any, useCache: boolean = true, cacheDuration: number = 60): Observable<T> {
+  protected get<T>(path: string = '', options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(path);
+    const cacheKey = this.createCacheKey('get', path, options);
+    const cachedData = this.cacheService.get<T>(cacheKey);
 
-    const httpParams = this.createHttpParams(params);
-    const httpOptions: HttpGetOptions = {
-      params: httpParams,
-      observe: 'body'
-    };
-
-    const cacheKey = useCache ? this.createCacheKey('get', path, params) : null;
-
-    if (cacheKey) {
-      const cachedData = this.cacheService.get<T>(cacheKey);
-      if (cachedData) {
-        return of(cachedData);
-      }
+    if (cachedData) {
+      return of(cachedData);
     }
 
-    return this.http.get<T>(url, httpOptions).pipe(
+    return this.http.get<T>(url, options).pipe(
       timeout(this.defaultTimeout),
       retry({ count: 1, delay: 1000 }),
-      tap(data => { if (cacheKey) this.cacheService.set(cacheKey, data, cacheDuration); }),
+      tap(data => this.cacheService.set(cacheKey, data, 60)),
       catchError(err => this.handleError(err, `Error fetching from ${url}`))
     );
   }
 
   /**
-   * Execute custom POST request
+   * Generic POST request
    */
-  protected post<T>(path: string, body: any = {}, params?: any): Observable<T> {
+  protected post<T>(path: string = '', data: any = {}, options: HttpOptions = {}): Observable<T> {
     const url = this.buildUrl(path);
 
-    const httpParams = this.createHttpParams(params);
-    const httpOptions: HttpGetOptions = {
-      params: httpParams,
-      observe: 'body'
-    };
-
-    return this.http.post<T>(url, body, httpOptions).pipe(
+    return this.http.post<T>(url, data, options).pipe(
       timeout(this.defaultTimeout),
       tap(() => this.invalidateCache()),
       catchError(err => this.handleError(err, `Error posting to ${url}`))
@@ -181,63 +142,50 @@ export abstract class BaseApiService {
   }
 
   /**
+   * Generic PUT request
+   */
+  protected put<T>(path: string = '', data: any = {}, options: HttpOptions = {}): Observable<T> {
+    const url = this.buildUrl(path);
+
+    return this.http.put<T>(url, data, options).pipe(
+      timeout(this.defaultTimeout),
+      tap(() => this.invalidateCache()),
+      catchError(err => this.handleError(err, `Error updating at ${url}`))
+    );
+  }
+
+  /**
    * Build full URL
    */
-  protected buildUrl(path: string): string {
-    // Handle paths with or without leading slash
-    const cleanEndpoint = this.endpoint.startsWith('/') ? this.endpoint : `/${this.endpoint}`;
-    const cleanPath = path ? (path.startsWith('/') ? path : `/${path}`) : '';
+  private buildUrl(path: string): string {
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    const cleanEndpoint = this.endpoint.startsWith('/') ? this.endpoint.slice(1) : this.endpoint;
 
-    return `${this.baseUrl}${cleanEndpoint}${cleanPath}`;
-  }
-
-  /**
-   * Convert params object to HttpParams
-   */
-  protected createHttpParams(params: any): HttpParams {
-    if (!params) return new HttpParams();
-
-    let httpParams = new HttpParams();
-
-    Object.keys(params).forEach(key => {
-      if (params[key] !== null && params[key] !== undefined) {
-        httpParams = httpParams.set(key, params[key].toString());
-      }
-    });
-
-    return httpParams;
-  }
-
-  /**
-   * Create cache key from path and parameters
-   */
-  protected createCacheKey(operation: string, path: string, params?: any): string {
-    let key = `${this.endpoint}-${operation}-${path}`;
-
-    if (params) {
-      // Convert params to a stable string representation
-      if (typeof params === 'object') {
-        const sortedKeys = Object.keys(params).sort();
-        key += '-' + sortedKeys.map(k => `${k}=${params[k]}`).join('&');
-      } else {
-        key += `-${params}`;
-      }
+    if (cleanPath) {
+      return `${this.baseUrl}/${cleanEndpoint}/${cleanPath}`;
     }
-
-    return key;
+    return `${this.baseUrl}/${cleanEndpoint}`;
   }
 
   /**
-   * Invalidate all cache entries for this endpoint
+   * Create cache key
    */
-  public invalidateCache(): void {
-    this.cacheService.clear(this.endpoint);
+  private createCacheKey(method: string, path: string, options: any): string {
+    const paramsString = options.params ? options.params.toString() : '';
+    return `${this.endpoint}-${method}-${path}-${paramsString}`;
   }
 
   /**
-   * Standard error handling with logging
+   * Handle HTTP errors
    */
-  protected handleError(error: HttpErrorResponse, message: string): Observable<never> {
+  private handleError(error: HttpErrorResponse, message: string): Observable<never> {
     return this.errorService.handleError(error, message);
+  }
+
+  /**
+   * Invalidate cache for this service
+   */
+  protected invalidateCache(): void {
+    this.cacheService.clearByPattern(this.endpoint);
   }
 }

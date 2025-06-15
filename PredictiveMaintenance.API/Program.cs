@@ -13,7 +13,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add SignalR
+builder.Services.AddSignalR();
 
+// Add MediatR
+builder.Services.AddMediatR(cfg => {
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+});
 
 // Add CORS for Angular
 builder.Services.AddCors(options =>
@@ -25,8 +31,6 @@ builder.Services.AddCors(options =>
                .AllowCredentials());
 });
 
-// Add SignalR for real-time communication
-builder.Services.AddSignalR();
 
 // Register DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -38,12 +42,8 @@ builder.Services.AddSingleton<IInfluxDbService, InMemoryInfluxDbService>();
 
 //builder.Services.AddSingleton<IInfluxDbService, InfluxDbService>();
 builder.Services.AddScoped<IEquipmentMonitoringService, EquipmentMonitoringService>();
+builder.Services.AddScoped<IPredictiveMaintenanceService, PredictiveMaintenanceService>();
 builder.Services.AddScoped<IEquipmentService, EquipmentService>();
-builder.Services.AddScoped<ISensorDataService, SensorDataService>();
-builder.Services.AddScoped<IEnergyOptimizationService, EnergyOptimizationService>();
-builder.Services.AddSingleton<IAdvancedAnomalyDetectionService, AdvancedAnomalyDetectionService>();
-builder.Services.AddSingleton<ISyntheticDataGenerator, SyntheticDataGenerator>();
-builder.Services.AddHostedService<DataGenerationBackgroundService>();
 
 var app = builder.Build();
 
@@ -64,7 +64,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
+
 app.MapControllers();
-app.MapHub<MonitoringHub>("/hubs/monitoring");
+app.MapHub<EquipmentHub>("/equipmentHub");
 
 app.Run();

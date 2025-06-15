@@ -1,4 +1,4 @@
-﻿// PredictiveMaintenance.API/Services/DataGeneration/EnhancedDataGenerationBackgroundService.cs
+﻿// Services/DataGeneration/EnhancedDataGenerationBackgroundService.cs
 using Microsoft.AspNetCore.SignalR;
 using PredictiveMaintenance.API.Hubs;
 using PredictiveMaintenance.API.Models;
@@ -13,19 +13,15 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
         private readonly ISyntheticDataGenerator _dataGenerator;
         private readonly IHubContext<MonitoringHub> _hubContext;
         private readonly IServiceScopeFactory _serviceScopeFactory;
-        private readonly TimeSpan _interval = TimeSpan.FromSeconds(2); // More frequent updates
+        private readonly TimeSpan _interval = TimeSpan.FromSeconds(2);
 
-        // Dictionary to track the last known status of each equipment
-        private readonly Dictionary<int, MaintenanceStatus> _lastKnownStatus = new Dictionary<int, MaintenanceStatus>();
+        // Change from MaintenanceStatus to EquipmentStatus
+        private readonly Dictionary<int, EquipmentStatus> _lastKnownStatus = new Dictionary<int, EquipmentStatus>();
 
-        // Keep track of sent readings to avoid duplication
         private readonly HashSet<string> _sentReadingsCache = new HashSet<string>();
-
-        // Cache TTL timer (clear every 5 minutes to prevent unbounded growth)
         private readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(5);
         private DateTime _lastCacheClear = DateTime.UtcNow;
 
-        // Use object lock to coordinate data generation
         private readonly object _lock = new object();
         private bool _isGenerating = false;
         private int _errorCount = 0;
@@ -349,37 +345,37 @@ namespace PredictiveMaintenance.API.Services.DataGeneration
             }
         }
 
-        private bool IsStatusEscalation(MaintenanceStatus previousStatus, MaintenanceStatus currentStatus)
+        private bool IsStatusEscalation(EquipmentStatus previousStatus, EquipmentStatus currentStatus)
         {
             // Consider it an escalation if the status is getting worse
             return (int)currentStatus > (int)previousStatus &&
-                   currentStatus != MaintenanceStatus.UnderMaintenance;
+                   currentStatus != EquipmentStatus.UnderMaintenance;
         }
 
-        private string GetStatusChangeRecommendation(MaintenanceStatus previousStatus,
-                                                 MaintenanceStatus currentStatus,
-                                                 Equipment equipment)
+        private string GetStatusChangeRecommendation(EquipmentStatus previousStatus,
+                                                   EquipmentStatus currentStatus,
+                                                   Equipment equipment)
         {
             // Provide intelligent recommendations based on status changes
-            if (currentStatus == MaintenanceStatus.Critical &&
-                previousStatus != MaintenanceStatus.Critical)
+            if (currentStatus == EquipmentStatus.Critical &&
+                previousStatus != EquipmentStatus.Critical)
             {
                 return "Immediate inspection required - equipment in critical condition";
             }
 
-            if (currentStatus == MaintenanceStatus.Warning &&
-                previousStatus == MaintenanceStatus.Operational)
+            if (currentStatus == EquipmentStatus.Warning &&
+                previousStatus == EquipmentStatus.Operational)
             {
                 return "Schedule maintenance within 48 hours";
             }
 
-            if (currentStatus == MaintenanceStatus.Operational &&
-                previousStatus != MaintenanceStatus.Operational)
+            if (currentStatus == EquipmentStatus.Operational &&
+                previousStatus != EquipmentStatus.Operational)
             {
                 return "Equipment returned to normal operation - verify performance";
             }
 
-            if (currentStatus == MaintenanceStatus.UnderMaintenance)
+            if (currentStatus == EquipmentStatus.UnderMaintenance)
             {
                 return "Equipment is under maintenance - update maintenance logs when complete";
             }
